@@ -1,0 +1,13 @@
+[Unit]
+Description=Pi thermal monitor dashboard
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/aldom/thermal-monitor
+ExecStart=/usr/bin/python3 /home/aldom/thermal-monitor/server.py --interval 5 --csv stats_live.csv --host 0.0.0.0 --port 8000
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

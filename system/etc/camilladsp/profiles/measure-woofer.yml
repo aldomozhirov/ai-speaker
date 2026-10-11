@@ -1,0 +1,168 @@
+---
+title: "Measurement - woofer only"
+description: "Woofer-only measurement profile with the production crossover active"
+
+# Software-only reference profile for:
+#   Amp4 LEFT  -> SB Acoustics SB12PFC25-4
+#   Amp4 RIGHT -> Dayton Audio ND25FA-4
+# All normal playback must enter through the ALSA device named smartspk.
+
+devices:
+  samplerate: 48000
+  chunksize: 1024
+  target_level: 3072
+  adjust_period: 5
+  enable_rate_adjust: true
+  resampler: null
+  volume_ramp_time: 250.0
+  volume_limit: -6.0
+
+  capture:
+    type: Alsa
+    channels: 2
+    device: "hw:Loopback,1,0"
+    format: S32_LE
+
+  playback:
+    type: Alsa
+    channels: 2
+    # Change this identifier if `aplay -l` reports a different HiFiBerry card ID.
+    device: "hw:sndrpihifiberry"
+    format: S32_LE
+
+mixers:
+  mono_split:
+    description: "Headroom-safe stereo-to-mono sum copied to woofer and tweeter paths"
+    labels: ["woofer_left", "tweeter_right"]
+    channels:
+      in: 2
+      out: 2
+    mapping:
+      - dest: 0
+        sources:
+          - channel: 0
+            gain: -6.0206
+          - channel: 1
+            gain: -6.0206
+      - dest: 1
+        sources:
+          - channel: 0
+            gain: -6.0206
+          - channel: 1
+            gain: -6.0206
+
+filters:
+  fixed_headroom:
+    type: Gain
+    description: "Reserve headroom for crossover phase interaction and later corrective EQ"
+    parameters:
+      gain: -5.0
+
+  woofer_trim:
+    type: Gain
+    description: "Woofer level and mute control"
+    parameters:
+      gain: 0.0
+      mute: false
+
+  tweeter_trim:
+    type: Gain
+    description: "Conservative starting trim; replace with measured value"
+    parameters:
+      gain: -3.5
+      mute: true
+
+  woofer_highpass:
+    type: BiquadCombo
+    description: "Reduce very-low-frequency excursion and distortion"
+    parameters:
+      type: LinkwitzRileyHighpass
+      freq: 80
+      order: 4
+
+  woofer_lowpass:
+    type: BiquadCombo
+    description: "Acoustic crossover starting point"
+    parameters:
+      type: LinkwitzRileyLowpass
+      freq: 2800
+      order: 4
+
+  tweeter_highpass:
+    type: BiquadCombo
+    description: "Acoustic crossover starting point"
+    parameters:
+      type: LinkwitzRileyHighpass
+      freq: 2800
+      order: 4
+
+  woofer_delay:
+    type: Delay
+    description: "Set from a measurement; keep both delays equal until measured"
+    parameters:
+      delay: 0.0
+      unit: ms
+      subsample: true
+
+  tweeter_delay:
+    type: Delay
+    description: "Set from a measurement; delay whichever driver arrives first"
+    parameters:
+      delay: 0.0
+      unit: ms
+      subsample: true
+
+  woofer_polarity:
+    type: Gain
+    parameters:
+      gain: 0.0
+      inverted: false
+
+  tweeter_polarity:
+    type: Gain
+    parameters:
+      gain: 0.0
+      inverted: false
+
+  emergency_clip_guard:
+    type: Limiter
+    description: "Last-resort hard clip guard, not a transparent loudness maximizer"
+    parameters:
+      soft_clip: false
+      clip_limit: -1.0
+
+pipeline:
+  - type: Mixer
+    name: mono_split
+
+  - type: Filter
+    description: "Common digital headroom"
+    channels: [0, 1]
+    names:
+      - fixed_headroom
+
+  - type: Filter
+    description: "Amp4 left / SB Acoustics midwoofer"
+    channels: [0]
+    names:
+      - woofer_highpass
+      - woofer_lowpass
+      - woofer_delay
+      - woofer_polarity
+      - woofer_trim
+
+  - type: Filter
+    description: "Amp4 right / Dayton tweeter"
+    channels: [1]
+    names:
+      - tweeter_highpass
+      - tweeter_delay
+      - tweeter_polarity
+      - tweeter_trim
+
+  # Add measured REW filters immediately before this final guard.
+  - type: Filter
+    description: "Emergency output guard"
+    channels: [0, 1]
+    names:
+      - emergency_clip_guard

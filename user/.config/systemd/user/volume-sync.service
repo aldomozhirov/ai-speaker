@@ -1,0 +1,16 @@
+[Unit]
+Description=Provider-neutral media volume synchronizer
+Documentation=https://mpris.org/
+Wants=pipewire.service wireplumber.service spotifyd.service
+After=pipewire.service wireplumber.service spotifyd.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 -u %h/.local/bin/volume_sync.py
+Restart=on-failure
+RestartSec=2
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+
+[Install]
+WantedBy=default.target

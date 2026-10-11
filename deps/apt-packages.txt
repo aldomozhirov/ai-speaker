@@ -1,0 +1,38 @@
+# Debian/Raspberry Pi OS packages the speaker needs on top of a stock
+# Raspberry Pi OS (64-bit, trixie). Installed by ./install.sh bootstrap-system.
+
+# audio stack (most are already on the desktop image)
+pipewire
+pipewire-pulse
+pipewire-bin
+wireplumber
+alsa-utils
+libasound2-plugins
+ffmpeg            # decodes the chimes and alarm sounds (sound_fx.py)
+playerctl         # MPRIS control of spotifyd (buttons, voice tools)
+avahi-utils       # Spotify Connect discovery checks
+
+# hardware
+dfu-util          # XVF3800 firmware flashing
+python3-gpiozero  # volume-buttons.py (system Python)
+python3-lgpio
+iw
+network-manager
+
+# system-Python services
+python3-venv
+python3-psutil    # thermal-monitor
+python3-dbus
+
+# tools
+curl
+ca-certificates
+unzip
+git
+
+# building spotifyd (rustup provides the toolchain itself)
+libssl-dev
+libpulse-dev
+libdbus-1-dev
+libasound2-dev
+pkg-config

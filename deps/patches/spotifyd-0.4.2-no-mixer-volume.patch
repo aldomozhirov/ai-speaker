@@ -1,0 +1,37 @@
+diff --git a/src/no_mixer.rs b/src/no_mixer.rs
+index 59213f2..fd7813d 100644
+--- a/src/no_mixer.rs
++++ b/src/no_mixer.rs
+@@ -1,4 +1,7 @@
+ use librespot_playback::mixer::{Mixer, MixerConfig};
++use std::sync::atomic::{AtomicU16, Ordering};
++
++static VOLUME: AtomicU16 = AtomicU16::new(u16::MAX);
+ 
+ pub struct NoMixer;
+ 
+@@ -8,8 +11,22 @@ impl Mixer for NoMixer {
+     }
+ 
+     fn volume(&self) -> u16 {
+-        u16::MAX
++        VOLUME.load(Ordering::Relaxed)
++    }
++
++    fn set_volume(&self, volume: u16) {
++        VOLUME.store(volume, Ordering::Relaxed);
+     }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
+ 
+-    fn set_volume(&self, _volume: u16) {}
++    #[test]
++    fn remembers_volume_for_playback_resynchronization() {
++        let mixer = NoMixer;
++        mixer.set_volume(27_500);
++        assert_eq!(mixer.volume(), 27_500);
++    }
+ }

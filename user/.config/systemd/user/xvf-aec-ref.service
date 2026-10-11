@@ -1,0 +1,43 @@
+[Unit]
+Description=XVF3800 AEC reference loopback (program audio -> echo canceller reference input)
+After=pipewire.service pipewire-pulse.service wireplumber.service
+Wants=pipewire-pulse.service wireplumber.service
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/xvf-aec-ref.sh
+Restart=always
+RestartSec=2
+
+# Delay that pw-loopback adds to the reference before it reaches the XVF3800,
+# in seconds. 0 since 2026-10-04 23:00: the delay the reference needs now
+# comes from the buffer of the XVF3800's playback device instead
+# (api.alsa.headroom in ~/.config/wireplumber/wireplumber.conf.d/
+# 51-smart-speaker.conf), which is also what keeps the reference rigid. The
+# two add up, so change them together.
+#
+# What the chip needs is the reference a little ahead of the echo. Measured
+# 2026-10-04 with tools/aec/aec-align-check.py, default headroom:
+#
+#   delay   reference vs echo   echo removed
+#   0.341   264 ms LATE          0.2 dB   nothing can be cancelled
+#   0        67 ms early        12 dB after 22 s and still creeping up
+#   0.04     36 ms early        29 dB, reached in about 14 s
+#   0.055    20 ms early        29 dB, reached in about 10 s
+#
+# The reference has to be early, but only just: with a long lead the chip
+# converges very slowly. A restart of the loopback moves the lead by a
+# millisecond or two, a reboot by more (5 ms on 2026-10-04).
+# The lead only holds while CamillaDSP buffers as much as it did when this was
+# measured. voice.yml loaded as a file runs with 52 ms less in the DAC's
+# buffer (chunksize 512 / target_level 1024), which puts the echo ahead of its
+# reference; so a voice session applies only that profile's processing and
+# keeps the running buffering (DspProfileSwitcher in voice_agent.py).
+# Re-measure after changing any of this or the music profile's chunksize or
+# target_level:  aec-ref-timing-probe.py lead
+Environment=XVF_AEC_REF_DELAY=0
+
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,22 @@
+#!/bin/sh
+set -eu
+
+if [ "$#" -ne 1 ]; then
+  echo "Expected exactly one profile path" >&2
+  exit 2
+fi
+
+candidate=$(/usr/bin/realpath -e -- "$1")
+case "$candidate" in
+  /etc/camilladsp/profiles/*.yml) ;;
+  *)
+    echo "Profile must be a .yml file in /etc/camilladsp/profiles" >&2
+    exit 2
+    ;;
+esac
+
+/usr/local/bin/camilladsp --check "$candidate" >/dev/null
+/usr/bin/ln -sfn -- "$candidate" /etc/camilladsp/profiles/.active.yml.new
+/usr/bin/mv -Tf -- \
+  /etc/camilladsp/profiles/.active.yml.new \
+  /etc/camilladsp/profiles/.active.yml

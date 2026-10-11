@@ -1,0 +1,51 @@
+# Where every tracked file lives on the device. Read by install.sh.
+#
+#   scope   repo path (glob allowed)                      live path (a directory when it ends in /)
+#
+# scope "user"   = owned by the speaker's login user, paths under ~ (installed without sudo)
+# scope "system" = owned by root (installed with sudo)
+#
+# Files are copies from the reference unit, so they contain its literal home
+# directory, user id and XVF3800 serial number. install.sh replaces those with
+# the target machine's values when installing, and puts them back when
+# capturing (see REF_* at the top of install.sh). On the reference unit that is
+# a no-op, so the repo stays byte-identical to the live files.
+#
+# File mode comes from the repo (git keeps the executable bit).
+# Secrets and personal data are deliberately NOT listed: see docs/operations.md.
+
+# --- code: ~/.local/bin --------------------------------------------------------
+user    src/*.py                                          ~/.local/bin/
+user    src/*.sh                                          ~/.local/bin/
+user    src/README-calibrate.md                           ~/.local/bin/
+user    src/thermal-monitor/*.py                          ~/thermal-monitor/
+user    src/thermal-monitor/README.md                     ~/thermal-monitor/
+
+# --- user services and audio configuration ---------------------------------------
+user    user/.config/systemd/user/*.service               ~/.config/systemd/user/
+user    user/.config/wireplumber/wireplumber.conf.d/51-smart-speaker.conf  ~/.config/wireplumber/wireplumber.conf.d/
+user    user/.config/spotifyd/spotifyd.conf               ~/.config/spotifyd/
+
+# --- sounds (stock sound effects) -------------------------------------------------
+user    user/.local/share/ai-speaker/sounds/*.mp3         ~/.local/share/ai-speaker/sounds/
+
+# --- system: audio plumbing ------------------------------------------------------
+system  system/etc/asound.conf                            /etc/
+system  system/etc/modprobe.d/snd-aloop.conf              /etc/modprobe.d/
+system  system/etc/modules-load.d/snd-aloop.conf          /etc/modules-load.d/
+system  system/etc/udev/rules.d/70-respeaker-xvf3800.rules  /etc/udev/rules.d/
+
+# --- system: CamillaDSP and CamillaGUI -------------------------------------------
+system  system/etc/systemd/system/camilladsp.service      /etc/systemd/system/
+system  system/etc/systemd/system/camillagui.service      /etc/systemd/system/
+system  system/etc/camilladsp/profiles/*.yml              /etc/camilladsp/profiles/
+system  system/etc/camillagui/*.yml                       /etc/camillagui/
+system  system/usr/local/sbin/smartspk-profile            /usr/local/sbin/
+system  system/usr/local/libexec/camilladsp-set-active-config  /usr/local/libexec/
+
+# --- system: robustness (Wi-Fi recovery, persistent journal) ---------------------
+system  system/etc/systemd/system/wifi-recover.service    /etc/systemd/system/
+system  system/etc/systemd/system/wifi-recover.timer      /etc/systemd/system/
+system  system/usr/local/sbin/wifi-recover                /usr/local/sbin/
+system  system/etc/systemd/journald.conf.d/99-persistent.conf  /etc/systemd/journald.conf.d/
+system  system/etc/cloud/cloud.cfg.d/99-disable-network-config.cfg  /etc/cloud/cloud.cfg.d/

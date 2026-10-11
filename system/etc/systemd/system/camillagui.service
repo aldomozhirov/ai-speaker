@@ -1,0 +1,30 @@
+[Unit]
+Description=CamillaGUI web interface
+After=network-online.target camilladsp.service
+Wants=network-online.target
+Requires=camilladsp.service
+
+[Service]
+Type=simple
+User=camillagui
+Group=camillaconfig
+WorkingDirectory=/opt/camillagui_backend
+ExecStart=/opt/camillagui_backend/camillagui_backend -c /etc/camillagui/camillagui.yml
+Restart=on-failure
+RestartSec=3s
+UMask=0007
+
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ReadWritePaths=/etc/camilladsp/profiles /etc/camilladsp/coeffs
+
+[Install]
+WantedBy=multi-user.target

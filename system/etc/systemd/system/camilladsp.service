@@ -1,0 +1,24 @@
+[Unit]
+Description=CamillaDSP smart-speaker active crossover
+After=systemd-modules-load.service sound.target
+Wants=sound.target
+
+[Service]
+Type=simple
+User=camilladsp
+Group=audio
+ExecStartPre=/usr/local/bin/camilladsp --check /etc/camilladsp/active.yml
+# Negative gain must use the equals form; `--gain -20` is parsed incorrectly.
+ExecStart=/usr/local/bin/camilladsp --gain=-7 --address 127.0.0.1 --port 1234 /etc/camilladsp/active.yml
+Restart=always
+RestartSec=2
+TimeoutStopSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadOnlyPaths=/etc/camilladsp
+UMask=007
+
+[Install]
+WantedBy=multi-user.target

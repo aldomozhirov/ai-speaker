@@ -1,0 +1,9 @@
+[Unit]
+Description=Recover wlan0 if it failed to come up
+After=NetworkManager.service
+Wants=NetworkManager.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/wifi-recover
+TimeoutStartSec=300

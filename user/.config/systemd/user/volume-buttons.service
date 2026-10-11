@@ -1,0 +1,18 @@
+[Unit]
+Description=Raspberry Pi GPIO volume buttons
+After=pipewire.service wireplumber.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 -u %h/.local/bin/volume-buttons.py
+Restart=on-failure
+RestartSec=2
+
+# Optional configuration overrides:
+# Environment=VOLUME_UP_GPIO=17
+# Environment=VOLUME_DOWN_GPIO=27
+# Environment=VOLUME_STEP_PERCENT=5
+# Environment=VOLUME_MAX=1.0
+
+[Install]
+WantedBy=default.target

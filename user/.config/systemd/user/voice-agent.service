@@ -1,0 +1,68 @@
+[Unit]
+Description=Pipecat + Gemini Live conversation engine for the AI speaker
+After=pipewire.service pipewire-pulse.service camilladsp.service
+Wants=pipewire-pulse.service
+
+[Service]
+Type=simple
+ExecStart=%h/.venvs/voice-agent/bin/python -u %h/.local/bin/voice_agent.py
+Restart=on-failure
+RestartSec=2
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=%h/.config/ai-speaker/voice-agent.env
+
+# Tuning can be adjusted here and applied with daemon-reload + restart.
+Environment=VOICE_MODEL=models/gemini-2.5-flash-native-audio-preview-12-2025
+Environment=VOICE_NAME=Puck
+Environment=VOICE_IDLE_SECONDS=8.0
+# Which XVF3800 capture channel goes to Gemini, and how much it is amplified.
+# Channel 1 (the ASR beam, same one the wake word listens to) since 2026-10-04:
+# five recordings of a real spoken command, replayed through the session code,
+# were understood 0 times out of 10 on channel 0 (the AGC'd "conference"
+# output) and 10 out of 10 on channel 1 with +12 dB. Channel 1 carries speech
+# at only about -36..-42 dBFS, hence the gain.
+Environment=VOICE_INPUT_CHANNEL=1
+Environment=VOICE_INPUT_GAIN_DB=12
+# Half-duplex: mic is muted while the bot speaks (residual echo from the
+# XVF3800 AEC is louder than the user's voice, so full duplex makes the
+# assistant interrupt and answer itself). Set to 0 for voice barge-in.
+Environment=VOICE_HALF_DUPLEX=1
+# How long the mic stays shut after the bot's last audio was handed to the
+# output. 0.46 rather than 0.4 since 2026-10-04: CamillaDSP now keeps the
+# music profile's buffering during a session (see DspProfileSwitcher), so the
+# bot's speech leaves the speaker about 0.06 s later than it used to.
+Environment=VOICE_MUTE_TAIL_SECONDS=0.46
+# Backstop: if BotStoppedSpeaking is ever lost (e.g. the Gemini connection
+# drops mid-utterance), reopen the mic anyway rather than staying deaf.
+Environment=VOICE_MAX_MUTE_SECONDS=30
+
+# Session robustness (Phase 6). Sliding-window context compression is what
+# makes a conversation outlive the free tier's 15-minute audio-session cap and
+# the 128k context window; pipecat leaves it off by default.
+Environment=VOICE_CONTEXT_COMPRESSION=1
+# VOICE_COMPRESSION_TRIGGER_TOKENS unset = Gemini's default (80% of window).
+# Absolute ceiling on one conversation, independent of VOICE_IDLE_SECONDS.
+Environment=VOICE_MAX_SESSION_SECONDS=1800
+
+# Ducking (Phase 7). Stream-level only -- never CamillaDSP's volume (global
+# tweeter headroom) and never the default sink (the user's physical volume,
+# owned by volume-sync.service). Applies for the whole session rather than
+# per bot utterance: unducked music trips the session's Silero VAD.
+Environment=VOICE_DUCK=1
+Environment=VOICE_DUCK_LEVEL=0.20
+Environment=VOICE_DUCK_RAMP_MS=200
+Environment=VOICE_DUCK_MATCH=spotifyd|librespot
+
+# Session start/end chimes (sound_fx.py). Played through the same aloop sink
+# as everything else, so CamillaDSP and the AEC reference both see them.
+Environment=SOUND_FX_ENABLED=1
+
+Environment=PW_TRANSPORT_DEBUG=1
+# Tools refused when a session heard no intelligible words (tool_guard.py);
+# every tool call is journalled either way. Empty = refuse none.
+Environment=VOICE_TOOL_GUARD=set_timer,set_alarm,cancel_timer,cancel_alarm
+
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target

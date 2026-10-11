@@ -1,0 +1,53 @@
+[Unit]
+Description=openWakeWord voice trigger for the AI speaker
+After=pipewire.service pipewire-pulse.service volume-led.service timer-alarm.service
+Wants=pipewire-pulse.service
+
+[Service]
+Type=simple
+ExecStart=%h/.venvs/wake-word/bin/python -u %h/.local/bin/wake_word.py
+Restart=on-failure
+RestartSec=2
+Environment=PYTHONUNBUFFERED=1
+
+# Tuning can be adjusted here and applied with daemon-reload + restart.
+Environment=WAKE_WORD_MODEL=hey_jarvis
+Environment=WAKE_WORD_THRESHOLD=0.10
+Environment=WAKE_WORD_PATIENCE=1
+Environment=WAKE_WORD_COOLDOWN=1.5
+Environment=WAKE_WORD_CHANNEL=1
+Environment=WAKE_WORD_DEBUG=1
+
+# Offline Vosk command matching (local_intent.py). OFF since 2026-10-04.
+# It holds every cloud session back by its matching window (1-6 s, ~4 s
+# typical, with no LED or chime in between), the audio from that window never
+# reaches the session, and its English-only grammar matched 0 of 93 commands
+# in the Sep 20 - Oct 3 journal -- commands here are mostly Russian. Timers,
+# alarms, Spotify and volume all still work through the Gemini session's own
+# tools. (It also used to make one "Hey Jarvis" fire up to ten times; that
+# part is fixed in wake_word.py itself, see Listener/DetectionGate there.)
+Environment=LOCAL_INTENT_ENABLED=0
+
+# Keeps the audio around every near-trigger (score > 0.05) and every button
+# press: both capture channels plus the per-frame scores, about 8 s per event,
+# in ~/.local/share/ai-speaker/wake-captures. Local only; the oldest files are
+# deleted beyond 200 MB. This is the corpus for tuning the detector on real
+# utterances (tools/wake/wake-replay.py score). Set to 0 to stop
+# recording; the other knobs are at the top of wake_capture.py.
+Environment=WAKE_WORD_CAPTURE=1
+# Second-stage check, since 2026-10-05: a frame at or above the threshold only
+# counts when a small model trained on this household's own "Hey Jarvis"
+# captures agrees (see Verifier in wake_word.py). Added after a meeting in
+# the room fired the wake word about once a minute. Retrain with
+# tools/wake/wake-verifier-train.py; 0 here switches the check off.
+Environment=WAKE_WORD_VERIFIER=%h/.local/share/ai-speaker/wake-verifier/{model}.pkl
+Environment=WAKE_WORD_VERIFIER_THRESHOLD=0.5
+# Second opinion from Vosk and microWakeWord on every trigger (wake_confirm.py).
+# "block" = a wake-up it does not confirm opens no session; "log" = journal
+# what it would have decided, block nothing; 0 = off.
+Environment=WAKE_WORD_SECOND_OPINION=block
+
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target

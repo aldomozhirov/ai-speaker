@@ -1,0 +1,10 @@
+[Unit]
+Description=Check wlan0 shortly after boot and every 2 minutes
+
+[Timer]
+OnBootSec=75s
+OnUnitInactiveSec=2min
+AccuracySec=10s
+
+[Install]
+WantedBy=timers.target

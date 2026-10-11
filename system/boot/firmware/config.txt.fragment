@@ -1,0 +1,10 @@
+# Lines the speaker needs in /boot/firmware/config.txt (not installed
+# automatically: a wrong boot config can leave a headless Pi unreachable).
+
+# The KMS driver without its HDMI audio, so the only sound cards are the
+# HiFiBerry, snd-aloop and the XVF3800.
+dtoverlay=vc4-kms-v3d,noaudio
+
+[all]
+# HiFiBerry Amp4 (DAC+ family driver)
+dtoverlay=hifiberry-dacplus-std

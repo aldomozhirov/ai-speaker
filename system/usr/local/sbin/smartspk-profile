@@ -1,0 +1,38 @@
+#!/bin/sh
+set -eu
+
+PROFILE_DIR=/etc/camilladsp/profiles
+ACTIVE=/etc/camilladsp/active.yml
+
+usage() {
+    echo "Usage: sudo smartspk-profile <profile|list|status>" >&2
+    echo "Profiles omit the .yml suffix, for example: music or voice" >&2
+    exit 2
+}
+
+case "${1:-}" in
+    list)
+        for f in "$PROFILE_DIR"/*.yml; do basename "$f" .yml; done
+        exit 0
+        ;;
+    status)
+        readlink -f "$ACTIVE" 2>/dev/null || true
+        systemctl --no-pager --full status camilladsp.service
+        exit 0
+        ;;
+    "")
+        usage
+        ;;
+    *)
+        profile=$1
+        case "$profile" in
+            *[!A-Za-z0-9._-]*|*..*) echo "Invalid profile name" >&2; exit 2 ;;
+        esac
+        source_file="$PROFILE_DIR/$profile.yml"
+        [ -f "$source_file" ] || { echo "Unknown profile: $profile" >&2; exit 2; }
+        /usr/local/bin/camilladsp --check "$source_file"
+        ln -sfn "profiles/$profile.yml" "$ACTIVE"
+        systemctl restart camilladsp.service
+        echo "Active profile: $profile"
+        ;;
+esac

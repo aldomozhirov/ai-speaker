@@ -1,0 +1,14 @@
+[Unit]
+Description=AI speaker boot welcome chime
+After=pipewire.service pipewire-pulse.service wireplumber.service
+Wants=pipewire-pulse.service
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/welcome-sound.sh
+Environment=XDG_RUNTIME_DIR=%t
+
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target

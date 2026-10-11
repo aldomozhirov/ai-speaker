@@ -1,0 +1,13 @@
+IMPORTANT SAFETY
+1. Disconnect the tweeter while commissioning the DSP.
+2. Put a 33 uF non-polar/bipolar capacitor rated at least 100 V in series with one tweeter lead.
+3. Do not bridge Amp4 channels, join speaker negative terminals, or connect a speaker terminal to ground.
+4. All players and TTS services must output to ALSA device `smartspk` (or the configured ALSA default), never directly to the HiFiBerry hardware device.
+5. The starter crossover must be measured and tuned in the completed enclosure.
+
+FILES
+- smart-speaker.yml -> /etc/camilladsp/smart-speaker.yml
+- asound.conf -> /etc/asound.conf
+- camilladsp.service -> /etc/systemd/system/camilladsp.service
+
+Before use, replace `sndrpihifiberry` in the YAML and ALSA files if `aplay -l` reports a different card ID.

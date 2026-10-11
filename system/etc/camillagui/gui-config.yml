@@ -1,0 +1,26 @@
+---
+page_title: "AI Speaker DSP"
+hide_capture_samplerate: true
+hide_silence: false
+hide_capture_device: true
+hide_playback_device: true
+hide_rate_monitoring: true
+hide_multithreading: true
+apply_config_automatically: false
+status_update_interval: 200
+volume_range: 37
+volume_max: -3
+custom_shortcuts:
+  - section: "Speaker tuning"
+    description: |
+      Safe adjustments for the active speaker profile.
+    shortcuts:
+      - name: "Bass boost (dB)"
+        description: |
+          Low-frequency shelf above the protected sub-bass range.
+        config_elements:
+          - path: ["filters", "bass_shelf", "parameters", "gain"]
+        range_from: 0
+        range_to: 5
+        step: 0.5
+        type: "number"

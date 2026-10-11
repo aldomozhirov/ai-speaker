@@ -1,0 +1,32 @@
+[Unit]
+Description=ReSpeaker XVF3800 PipeWire volume LED indicator
+After=pipewire.service pipewire-pulse.service
+Wants=pipewire-pulse.service
+
+[Service]
+Type=simple
+ExecStart=%h/.local/share/volume-led/venv/bin/python %h/.local/bin/volume_led.py
+Restart=on-failure
+RestartSec=2
+Environment=PYTHONUNBUFFERED=1
+
+# Behaviour can be adjusted here and applied with daemon-reload + restart.
+Environment=VOLUME_LED_HOLD=0.90
+Environment=VOLUME_LED_FADE=0.55
+Environment=VOLUME_LED_BRIGHTNESS=0.32
+Environment=VOLUME_LED_FPS=30
+Environment=VOLUME_LED_LOW_COLOUR=FFFFFF
+Environment=VOLUME_LED_HIGH_COLOUR=FFFFFF
+Environment=VOLUME_LED_MUTE_COLOUR=FF180C
+Environment=VOLUME_LED_START_PIXEL=0
+Environment=VOLUME_LED_REVERSE=0
+Environment=ASSISTANT_LED_LISTENING_COLOUR=FFFFFF
+
+# Calibrated empirically 2026-08-22: the mic array's DOA_VALUE zero-degree
+# reference is rotated 180 degrees from this LED ring's pixel 0.
+Environment=ASSISTANT_LED_DOA_OFFSET_DEG=180
+
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target

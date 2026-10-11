@@ -1,0 +1,24 @@
+[Unit]
+Description=spotifyd Spotify Connect receiver
+Documentation=https://docs.spotifyd.rs/
+Wants=network-online.target
+After=network-online.target pipewire-pulse.service
+
+[Service]
+Type=simple
+ExecStart=/home/aldom/.local/bin/spotifyd --no-daemon --config-path=/home/aldom/.config/spotifyd/spotifyd.conf
+Restart=on-failure
+RestartSec=5
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+Environment=PULSE_SERVER=unix:/run/user/1000/pulse/native
+Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+# Keep WirePlumber from saving and restoring this stream's own volume. The
+# voice agent ducks the stream to 0.20 for a session (duck.py); when playback
+# stops while ducked ("stop the music") the stream is destroyed at 0.20,
+# WirePlumber remembered that, and every later stream came up 42 dB down
+# whatever the master volume said (2026-10-05 21:58 until 2026-10-06). The
+# sink is the only volume control here, so the stream always starts at 1.0.
+Environment=PULSE_PROP=state.restore-props=false
+
+[Install]
+WantedBy=default.target

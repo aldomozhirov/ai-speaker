@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# Self-heal wlan0 when it fails to come up. Installed to /usr/local/sbin by
+# fix-wifi-boot.sh and driven by wifi-recover.timer.
+#
+# Escalates only as far as it needs to:
+#   0. link is up with an IP and the gateway answers -> do nothing
+#   1. nmcli connection up            (profile there, just not activated)
+#   2. restart NetworkManager         (NM wedged / lost the supplicant)
+#   3. reload brcmfmac                (SDIO radio did not survive a warm reboot)
+set -uo pipefail
+
+IFACE=wlan0
+LOG() { logger -t wifi-recover -- "$*"; echo "wifi-recover: $*"; }
+
+gw() { ip -4 route show default dev "$IFACE" 2>/dev/null | awk '{print $3; exit}'; }
+
+healthy() {
+  ip link show "$IFACE" &>/dev/null || return 1
+  ip -4 addr show dev "$IFACE" scope global | grep -q 'inet ' || return 1
+  local g; g=$(gw); [[ -n $g ]] || return 1
+  ping -c1 -W2 -I "$IFACE" "$g" &>/dev/null
+}
+
+profile() {
+  nmcli -t -f NAME,TYPE connection show 2>/dev/null |
+    awk -F: '$2=="802-11-wireless"{print $1; exit}'
+}
+
+healthy && exit 0
+
+CON=$(profile)
+LOG "unhealthy (iface=$IFACE profile=${CON:-none}); starting recovery"
+
+# --- 1. just activate the profile -------------------------------------------
+if [[ -n ${CON:-} ]]; then
+  LOG "step 1: nmcli connection up '$CON'"
+  nmcli -w 25 connection up "$CON" &>/dev/null
+  sleep 5
+  healthy && { LOG "recovered at step 1"; exit 0; }
+fi
+
+# --- 2. restart NetworkManager ----------------------------------------------
+LOG "step 2: restarting NetworkManager"
+systemctl restart NetworkManager
+for _ in {1..12}; do sleep 5; healthy && { LOG "recovered at step 2"; exit 0; }; done
+
+# --- 3. reload the Broadcom SDIO driver -------------------------------------
+# The radio hangs off mmc1 (SDIO); a warm reboot can leave it in a state where
+# the firmware download never happens and wlan0 never appears at all.
+LOG "step 3: reloading brcmfmac"
+ip link set "$IFACE" down 2>/dev/null || true
+modprobe -r brcmfmac_cyw brcmfmac 2>/dev/null || true
+sleep 3
+modprobe brcmfmac
+sleep 8
+systemctl restart NetworkManager
+for _ in {1..12}; do sleep 5; healthy && { LOG "recovered at step 3"; exit 0; }; done
+
+LOG "STILL DOWN after all three steps - needs a look (or a cold power cycle)"
+exit 1

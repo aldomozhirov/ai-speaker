@@ -1,0 +1,27 @@
+[Unit]
+Description=Offline timer & alarm service for the AI speaker
+After=pipewire.service pipewire-pulse.service volume-led.service
+Wants=pipewire-pulse.service
+
+[Service]
+Type=simple
+ExecStart=%h/.venvs/wake-word/bin/python -u %h/.local/bin/timer_alarm.py
+Restart=on-failure
+RestartSec=2
+Environment=PYTHONUNBUFFERED=1
+
+# Optional configuration overrides:
+# Environment=TIMER_ALARM_MAX_RING_SECONDS=600
+# Environment=TIMER_ALARM_SOCKET=/run/user/1000/timer-alarm.sock
+# Environment=WAKE_WORD_SOURCE=alsa_input.usb-Seeed_Studio_reSpeaker_XVF3800_4-Mic_Array_114993700254500350-00.analog-stereo
+
+# The XVF3800's two capture channels are different signals, not a stereo pair,
+# so the stop-listener must tap the same one wake-word.service was empirically
+# set to (=1). timer_alarm.py's own default is 0, which would listen on the
+# weaker channel and make "stop" less reliable than the wake word.
+Environment=WAKE_WORD_CHANNEL=1
+
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target

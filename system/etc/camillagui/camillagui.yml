@@ -1,0 +1,17 @@
+---
+camilla_host: "127.0.0.1"
+camilla_port: 1234
+bind_address: "0.0.0.0"
+port: 5005
+ssl_certificate: null
+ssl_private_key: null
+gui_config_file: "/etc/camillagui/gui-config.yml"
+config_dir: "/etc/camilladsp/profiles"
+coeff_dir: "/etc/camilladsp/coeffs"
+default_config: "/etc/camilladsp/profiles/music.yml"
+statefile_path: null
+log_file: null
+on_set_active_config: "/usr/local/libexec/camilladsp-set-active-config {}"
+on_get_active_config: "/usr/bin/readlink -f /etc/camilladsp/active.yml"
+supported_capture_types: ["Alsa"]
+supported_playback_types: ["Alsa"]
