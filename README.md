@@ -90,6 +90,7 @@ config/                    templates for the secrets (the real ones never enter 
 tools/                     measurement and replay tools, run from the checkout
 tests/                     unit tests for the wake-word and tool-guard code
 docs/                      the documentation above
+AGENTS.md                  rules for AI coding agents working on this repo
 ```
 
 ## Status (2026-10-11)

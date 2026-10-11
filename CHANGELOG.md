@@ -22,6 +22,8 @@ Decision records are linked as [D00NN](docs/decisions/README.md).
 
 ## 2026-10-11 — Repository
 
+- Agent instructions moved to `AGENTS.md` so that any coding agent finds them;
+  `CLAUDE.md` only imports it (Claude Code reads that name).
 - Created this repository from the live device: code, units, WirePlumber,
   spotifyd, CamillaDSP and system files at their real paths; installer with
   `diff`/`apply`/`capture`/`bootstrap`; living documentation; decision

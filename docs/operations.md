@@ -148,9 +148,9 @@ Device-specific values (home directory, user id, XVF3800 serial number) are
 replaced by `install.sh` automatically. The XVF3800 serial is read from USB;
 override with `XVF_SERIAL=…`.
 
-## Working with AI coding sessions on the Pi
+## Working with AI coding agents on the Pi
 
-Several Claude Code sessions have worked on this device at the same time and
-overwritten each other's installs. Rules (also in `CLAUDE.md`): work in the
+Several AI coding sessions have worked on this device at the same time and
+overwritten each other's installs. Rules (in full in `AGENTS.md`): work in the
 repo, start with `./install.sh diff all`, keep changes small and committed,
 and never install a whole file over a live file you have not compared.
