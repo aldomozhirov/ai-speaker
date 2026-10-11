@@ -20,6 +20,32 @@ Decision records are linked as [D00NN](docs/decisions/README.md).
 
 ---
 
+## 2026-10-11 — Self-extension spec (draft; nothing built)
+
+- `docs/specs/self-extension.md`: how the speaker could learn new voice
+  capabilities on request ("Hey Jarvis, learn to tell me what's playing on
+  Spotify").
+  - Agents on the device (opencode) plan, write tests first, build and
+    review in a separate `workshop` account that holds no secrets.
+  - Deterministic gates check scope, code, tests, tool routing and real
+    Gemini replays.
+  - The owner approves.
+  - Capabilities run in per-capability systemd sandboxes without network
+    or files, and are installed with probation and a one-step rollback.
+
+  Phases and spikes are in the spec.
+- **Owner's decisions:**
+  - opencode, "with models of my choice. Anthropic is not required";
+  - sandboxed per-capability workers, named capabilities "to avoid
+    confusions with Claude skills";
+  - approval by merging the PR, and also "merge the PR automatically if I
+    confirm" (voice plus the wake button, tier 1 only);
+  - a dedicated `workshop` user with a one-time sudo setup.
+- **Found while checking the device:** only the `cpu` and `pids` cgroup
+  controllers are delegated to user services, so a `MemoryMax=` in a user
+  unit is silently ignored today. The spec adds a delegation drop-in and a
+  status check before anything relies on it.
+
 ## 2026-10-11 — Repository
 
 - Agent instructions moved to `AGENTS.md` so that any coding agent finds them;

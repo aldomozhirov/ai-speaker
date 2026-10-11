@@ -75,6 +75,7 @@ the same commit as the change it describes.
 | [docs/extending.md](docs/extending.md) | How to add a voice tool, a service, a setting or a DSP profile, and how to test audio changes safely |
 | [docs/tools.md](docs/tools.md) | The measurement, replay and test tools under `tools/` and `tests/` |
 | [docs/decisions/](docs/decisions/README.md) | Architecture decision records: why each major choice was made and what it cost |
+| [docs/specs/](docs/specs/self-extension.md) | Designs that are not built yet (draft). They describe plans, not the system as it is |
 | [docs/history/](docs/history/README.md) | The original working notes from each stage, kept as written |
 | [CHANGELOG.md](CHANGELOG.md) | Dated history of every change, with the reasoning and the evidence |
 
