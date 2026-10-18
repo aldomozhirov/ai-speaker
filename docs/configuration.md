@@ -110,6 +110,18 @@ stream's volume, see audio-pipeline.md). The receiver itself is configured in
 320 kbit/s, `volume_controller = "none"`, MPRIS on the session bus, event hook
 `spotifyd-event-hook.sh`.
 
+## spotifyd-watchdog.service / .timer (`spotifyd-watchdog.py`)
+
+The timer runs it 3 min after boot, then every 5 min after each run.
+`spotify_web.py` also starts it when a play request can't find the speaker.
+Uses the voice agent's Spotify Web API login (`spotify.json`).
+
+| Setting | Value | Meaning |
+|---|---|---|
+| `SPOTIFYD_WATCHDOG_GRACE` | 90 s | Leave a freshly started spotifyd alone this long |
+| `SPOTIFYD_WATCHDOG_RECHECK` | 20 s | The speaker must be missing from the device list twice, this far apart |
+| `SPOTIFYD_WATCHDOG_COOLDOWN` | 900 s | At most one restart per this period (stamp in `$XDG_RUNTIME_DIR`) |
+
 ## Outside the units
 
 | File | Settings |

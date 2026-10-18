@@ -1,0 +1,10 @@
+[Unit]
+Description=Check every 5 minutes that Spotify still sees the speaker
+
+[Timer]
+OnBootSec=3min
+OnUnitInactiveSec=5min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

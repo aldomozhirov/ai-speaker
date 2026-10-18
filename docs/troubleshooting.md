@@ -90,6 +90,19 @@ leaves a stale session at Spotify: Web API play returns 502 for a long time.
 Select "AI Speaker" again in the Spotify app. Avoid restarting spotifyd while
 it is in use.
 
+## "Play …" fails: "no Connect device named 'AI Speaker'" (404)
+
+spotifyd is running, but the speaker is missing from Spotify's device list
+(`spotify_web.py devices` shows nothing) and from the Spotify app. spotifyd's
+log shows `Websocket peer does not respond.` and nothing after it: spotifyd
+0.4.2 lost its connection to Spotify and never reconnects (2026-10-12: dropped
+at 02:00, three failed "play" requests at 09:24). Only a restart helps.
+`spotifyd-watchdog.timer` now does that by itself within about five minutes,
+and a failed play request starts it at once, so asking again a minute later
+should work. Look for `spotifyd-watchdog` in the journal. If it says it is
+"leaving it" during the cooldown, the restart did not help: check spotifyd's
+log for login errors.
+
 ## The speaker vanishes from the Spotify app / network drops
 
 - Wi-Fi power saving must be off: `iw dev wlan0 get power_save` → `off`

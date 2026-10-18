@@ -68,7 +68,7 @@ signature and docstring. They are listed in `voice_agent.py` (`LLMContext(tools=
 | Tool | Module | Does |
 |---|---|---|
 | `spotify_play`, `spotify_pause`, `spotify_next`, `spotify_previous` | `spotify_tools.py` | Transport via `playerctl` (MPRIS). Only works while a Spotify session exists |
-| `spotify_play_track(query, kind)` | `spotify_tools.py` + `spotify_web.py` | Search track/album/artist/playlist and play it on this speaker via the Spotify Web API; works from cold |
+| `spotify_play_track(query, kind)` | `spotify_tools.py` + `spotify_web.py` | Search track/album/artist/playlist and play it on this speaker via the Spotify Web API; works from cold. The device is looked up fresh on every request, so a speaker missing from Spotify is reported before the confirmation, and `spotifyd-watchdog` is started to bring it back |
 | `set_volume(level_percent)`, `adjust_volume(direction, step_percent)` | `volume_tools.py` | The PipeWire default sink via `wpctl` |
 | `set_timer`, `cancel_timer`, `set_alarm`, `cancel_alarm`, `get_timer_alarm_status` | `timer_tools.py` | Talk to `timer-alarm.service` over its socket |
 

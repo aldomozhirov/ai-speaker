@@ -89,7 +89,8 @@ wake-scores.sh              # recent wake-word scores
 
 Useful lines: `second opinion: … -> pass|block`, `Wake word blocked by the
 second opinion`, `verifier=`, `Tool call:`, `Deferred action failed`,
-`Previous session left CamillaDSP on …`. The journal is persistent (200 MB
+`Previous session left CamillaDSP on …`, and `restarting spotifyd` from
+`spotifyd-watchdog`. The journal is persistent (200 MB
 cap), so it survives reboots and crashes.
 
 In a non-login shell (SSH command, cron) export the session variables first:

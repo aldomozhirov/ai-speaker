@@ -46,6 +46,7 @@ start order:
 | `wake-word` | `wake_word.py` | Listens for "Hey Jarvis", checks it twice, records near-triggers, relays the trigger |
 | `voice-agent` | `voice_agent.py` | Runs a Gemini Live conversation per trigger; owns ducking, DSP profile switching, chimes, tools |
 | `spotifyd` | `~/.local/bin/spotifyd` | Spotify Connect receiver ("AI Speaker") |
+| `spotifyd-watchdog.timer` | `spotifyd-watchdog.py` | Every 5 min: restarts spotifyd if Spotify no longer lists the speaker (spotifyd does not reconnect a dropped websocket) |
 | `thermal-monitor` | `thermal-monitor/server.py` | Temperature/throttling log and web page on port 8000 |
 
 System services: `camilladsp` (DSP, websocket on 127.0.0.1:1234),

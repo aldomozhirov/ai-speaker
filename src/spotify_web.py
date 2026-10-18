@@ -286,10 +286,26 @@ async def resolve_device(force: bool = False) -> str:
         if (device.get("name") or "").casefold() == DEVICE_NAME.casefold():
             _device_id = device["id"]
             return _device_id
+    await _kick_watchdog()
     raise SpotifyError(
-        "This speaker isn't showing up in Spotify right now.",
+        "This speaker has dropped out of Spotify. I'm reconnecting it, "
+        "try again in a minute.",
         f"no Connect device named {DEVICE_NAME!r} -- is spotifyd running and logged in?",
     )
+
+
+async def _kick_watchdog() -> None:
+    """Have spotifyd-watchdog check now rather than at its next timer run:
+    spotifyd can lose Spotify's websocket and never reconnect, and only a
+    restart brings it back. --no-block: the user is waiting for an answer."""
+    try:
+        process = await asyncio.create_subprocess_exec(
+            "systemctl", "--user", "start", "--no-block", "spotifyd-watchdog.service",
+            stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL,
+        )
+        await asyncio.wait_for(process.wait(), timeout=2)
+    except (OSError, asyncio.TimeoutError) as exc:
+        LOG.warning("Could not start spotifyd-watchdog: %s", exc)
 
 
 async def play_uri(uri: str, device_id: str, context_uri: str = "") -> None:
@@ -333,8 +349,12 @@ async def prepare_query(query: str, kind: str = "track"):
     the user about (nothing found, speaker not visible to Spotify) fails here.
     Raises SpotifyError with a spoken message."""
     # Concurrent: the device lookup doesn't depend on what we found, so a
-    # cold "play X" costs two round trips rather than three.
-    found, device_id = await asyncio.gather(search(query, kind), resolve_device())
+    # cold "play X" costs two round trips rather than three. Always a fresh
+    # lookup: a cached id hid a speaker that had dropped out of Spotify until
+    # after the assistant had already said it was playing (2026-10-12).
+    found, device_id = await asyncio.gather(
+        search(query, kind), resolve_device(force=True)
+    )
     if not found:
         raise SpotifyError(
             f"I couldn't find anything called {query}.", f"no {kind} results for {query!r}"

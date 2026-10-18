@@ -23,6 +23,7 @@ user    src/thermal-monitor/README.md                     ~/thermal-monitor/
 
 # --- user services and audio configuration ---------------------------------------
 user    user/.config/systemd/user/*.service               ~/.config/systemd/user/
+user    user/.config/systemd/user/*.timer                 ~/.config/systemd/user/
 user    user/.config/wireplumber/wireplumber.conf.d/51-smart-speaker.conf  ~/.config/wireplumber/wireplumber.conf.d/
 user    user/.config/spotifyd/spotifyd.conf               ~/.config/spotifyd/
 

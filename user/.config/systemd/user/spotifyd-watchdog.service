@@ -1,0 +1,8 @@
+[Unit]
+Description=Restart spotifyd if the speaker has dropped out of Spotify Connect
+After=spotifyd.service network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/home/aldom/.local/bin/spotifyd-watchdog.py
+TimeoutStartSec=120

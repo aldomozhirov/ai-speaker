@@ -20,6 +20,28 @@ Decision records are linked as [D00NN](docs/decisions/README.md).
 
 ---
 
+## 2026-10-12 — spotifyd watchdog
+
+- **What:** `spotifyd-watchdog.timer` checks every 5 min that Spotify's Connect
+  device list still contains "AI Speaker". If the speaker is missing twice,
+  20 s apart, the watchdog restarts spotifyd (at most once per 15 min).
+  `spotify_web.py` now looks the device up fresh for every "play X" and
+  starts the watchdog at once when the speaker is missing. The assistant then
+  says the speaker dropped out of Spotify and is being reconnected.
+- **Why:** at 09:23–09:24 three voice requests to play Валерий Меладзе
+  failed. Each was confirmed aloud, then failed silently with `404` →
+  `no Connect device named 'AI Speaker'`. spotifyd (0.4.2) had logged
+  `Websocket peer does not respond.` at 02:00:32 and never reconnected. The
+  process stayed up, so systemd saw nothing wrong, but the Web API device
+  list was empty. A manual restart at 09:32 brought the speaker back at once.
+  The cached device id hid the problem until after the confirmation.
+- **Safety:** the watchdog restarts spotifyd only when Spotify doesn't list the
+  speaker, so the speaker can't be the active Connect device at that moment
+  (the rule in AGENTS.md). It does nothing if Spotify can't be reached.
+- **Evidence:** tested on the device: no restart while the speaker is listed;
+  with a missing device name and a fresh stamp it waits through the cooldown
+  instead of restarting.
+
 ## 2026-10-11 — Repository
 
 - Agent instructions moved to `AGENTS.md` so that any coding agent finds them;

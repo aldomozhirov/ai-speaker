@@ -385,7 +385,7 @@ cmd_bootstrap_user() {
   note "enable user services"
   systemctl --user daemon-reload
   systemctl --user enable xvf-aec-ref volume-led volume-sync volume-buttons welcome-sound \
-    timer-alarm wake-word voice-agent spotifyd thermal-monitor
+    timer-alarm wake-word voice-agent spotifyd thermal-monitor spotifyd-watchdog.timer
 
   echo
   echo "Still to do by hand (docs/operations.md, 'New device'):"
