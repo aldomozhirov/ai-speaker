@@ -28,6 +28,7 @@ Change a setting by editing the unit **in the repo**, then
 | `WAKE_WORD_SECOND_OPINION_MICRO_CUTOFF` | – | 0.5 | microWakeWord probability that confirms |
 | `WAKE_WORD_SECOND_OPINION_WINDOW` | – | 3.0 | Seconds of audio judged |
 | `WAKE_WORD_SECOND_OPINION_DELAY` | – | 0.16 | Seconds after the trigger before judging |
+| `WAKE_WORD_SECOND_OPINION_MAX_GAIN` | – | 16 | The window is normalised to half of full scale, with at most this gain, before judging; `1` = off |
 | `WAKE_WORD_CAPTURE` | 1 | 0 | Save audio around near-triggers |
 | `WAKE_WORD_CAPTURE_SCORE` | – | 0.05 | Score that starts a capture |
 | `WAKE_WORD_CAPTURE_PRE_SECONDS` / `_POST_SECONDS` / `_BUTTON_SECONDS` | – | 3 / 5 / 10 | Capture length |

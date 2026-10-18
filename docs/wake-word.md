@@ -53,6 +53,10 @@ are checked by two independent detectors on channel 1:
   `["hey jarvis", "jarvis", "[unk]"]`, confidence ≥ 0.5, or
 - microWakeWord's "Hey Jarvis" model at ≥ 0.5 (its own default is 0.97).
 
+The window is first normalised to half of full scale (gain at most 16×,
+`WAKE_WORD_SECOND_OPINION_MAX_GAIN`). Since 2026-10-18: before that, a quiet
+or far "Hey Jarvis" reached both engines too faint to be heard at all.
+
 Either one is enough. `WAKE_WORD_SECOND_OPINION=block` (since 2026-10-09):
 the session is opened only on agreement; `log` only journals the verdict; `0`
 switches it off.
@@ -60,7 +64,11 @@ switches it off.
 Measured over 485 captures (2026-10-08): it keeps 34 of 42 real wake-ups and
 passes 0 of 62 known false ones; on the first live day it blocked 10 of 10
 false wakes and passed 2 of 2 real ones. **Cost: about one real wake-up in
-five is blocked.** If someone reports that the speaker ignores them, look for
+five is blocked.** That figure did not hold: from 13 Oct the blocked share
+grew, and on 17–18 Oct 25 of 26 wake-ups were blocked, by the owner's account
+mostly real. Normalising the window (2026-10-18) recovers 6 of those 26 in
+replay and lifts the hand-sorted real ones from 30 to 37 of 39, with false
+ones still 0 of 61 that can reach this stage. If someone reports that the speaker ignores them, look for
 "Wake word blocked by the second opinion" in the journal first.
 
 The voice agent does not wait idle for this verdict: on "voice-pending" it

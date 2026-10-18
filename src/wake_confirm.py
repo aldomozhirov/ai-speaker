@@ -53,6 +53,12 @@ MICRO_CUTOFF = float(os.environ.get("WAKE_WORD_SECOND_OPINION_MICRO_CUTOFF", "0.
 # wake-ups); in "block" mode this is time the user waits for the chime.
 WINDOW_SECONDS = float(os.environ.get("WAKE_WORD_SECOND_OPINION_WINDOW", "3.0"))
 DELAY_SECONDS = float(os.environ.get("WAKE_WORD_SECOND_OPINION_DELAY", "0.16"))
+# The window is brought to half of full scale (at most this much gain) before
+# it is judged. On channel 1 a "Hey Jarvis" from across the room peaks far
+# below what Vosk and microWakeWord were made for, and both then hear nothing:
+# 17-18 Oct 2026, 25 of 26 real wake-ups blocked. Normalised, the hand-sorted
+# real ones passed 37 of 39 instead of 30, false ones still 0 of 61. 1 = off.
+MAX_GAIN = float(os.environ.get("WAKE_WORD_SECOND_OPINION_MAX_GAIN", "16"))
 
 
 @dataclass(frozen=True)
@@ -108,8 +114,17 @@ class Judge:
             engine.close()
         return peak
 
+    @staticmethod
+    def _normalised(pcm: np.ndarray) -> np.ndarray:
+        peak = int(np.max(np.abs(pcm.astype(np.int32)))) if len(pcm) else 0
+        gain = min(MAX_GAIN, 0.5 * 32767 / peak) if peak else 1.0
+        if gain <= 1.0:
+            return pcm
+        return np.clip(pcm.astype(np.float32) * gain, -32768, 32767).astype(np.int16)
+
     def judge(self, pcm: np.ndarray) -> Opinion:
         started = time.monotonic()
+        pcm = self._normalised(pcm)
         vosk_score = self._vosk_score(pcm)
         micro_score = self._micro_score(pcm)
         return Opinion(
@@ -164,9 +179,9 @@ class SecondOpinion:
             LOG.exception("Could not set up the second opinion; running without it")
             return None
         LOG.info(
-            "Second opinion on (%s): vosk>=%.2f or micro>=%.2f, %.1fs window, %.2fs after the trigger",
+            "Second opinion on (%s): vosk>=%.2f or micro>=%.2f, %.1fs window, %.2fs after the trigger, gain up to %.0fx",
             {"block": "blocks", "log": "log only"}.get(MODE, f"unknown mode {MODE!r}, log only"),
-            VOSK_CONFIDENCE, MICRO_CUTOFF, WINDOW_SECONDS, DELAY_SECONDS,
+            VOSK_CONFIDENCE, MICRO_CUTOFF, WINDOW_SECONDS, DELAY_SECONDS, MAX_GAIN,
         )
         second = cls(judge, frame_seconds, threshold, on_opinion)
         second.blocking = MODE == "block"

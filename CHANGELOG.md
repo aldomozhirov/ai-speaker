@@ -20,6 +20,34 @@ Decision records are linked as [D00NN](docs/decisions/README.md).
 
 ---
 
+## 2026-10-18 — Second opinion hears quiet wake-ups
+
+- **What:** `wake_confirm.py` normalises the 3 s window to half of full scale
+  (gain at most 16×, `WAKE_WORD_SECOND_OPINION_MAX_GAIN`) before Vosk and
+  microWakeWord judge it. Thresholds unchanged: openWakeWord 0.10, verifier
+  0.5, Vosk 0.5, microWakeWord 0.5.
+- **Why:** owner: "we need to increase Hey Jarvis sensitivity a bit as it
+  hears not very good, but be cautious about false positives". The journal
+  showed the second opinion, not the detector, losing them: blocked/confirmed
+  per day went from 6/14 (10 Oct) to 17/2 (17 Oct) and 8/0 (18 Oct until
+  16:00). Owner on the blocked ones of 17–18 Oct: "at least half it was me";
+  no session in that time was cancelled with the button, the owner's sign of
+  a false wake-up. Vosk scored 0.00 on nearly all of them, live and in
+  replay; their windows peak low (RMS ~40–200).
+- **Not done:** letting a very confident verifier override the second opinion.
+  Known false wake-ups reach verifier 0.94–0.975 (9 Oct 09:04, 10 Oct 22:55,
+  and empty sessions of 5–8 Oct), while most of the blocked real ones on 17–18
+  Oct scored 0.5–0.8.
+- **Evidence (replay, channel 1):** hand-sorted real 30 → 37 of 39; false
+  0 → 0 of 61 that reach the 0.10 threshold (one more of 62 passes, but its
+  detector peak is 0.058, so it never reaches this stage); recent blocked
+  1 → 6 of 26; verifier-rejected room triggers of 16–18 Oct 1 → 5 of 175
+  passed by the second opinion alone, 0 of 175 by verifier and second opinion
+  together. Judging still takes ~100 ms. Other variants (later window,
+  channel 0, stricter cut-offs) were no better. Some 20 of the 26 are still
+  heard by neither engine; the next step for those is retraining the
+  verifier on recent captures or a custom openWakeWord model.
+
 ## 2026-10-12 — spotifyd watchdog
 
 - **What:** `spotifyd-watchdog.timer` checks every 5 min that Spotify's Connect

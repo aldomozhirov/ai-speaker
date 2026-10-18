@@ -13,7 +13,8 @@ comes from something that actually happened on this device.
 ## The wake word does not react
 
 1. **Blocked by the second opinion?** `journalctl _SYSTEMD_USER_UNIT=wake-word.service | grep "blocked by the second opinion"`.
-   It costs about one real wake-up in five. Softer: `WAKE_WORD_SECOND_OPINION=log`.
+   It was meant to cost about one real wake-up in five; for a quiet or far voice it
+   costs far more (17–18 Oct: 25 of 26, see wake-word.md). Softer: `WAKE_WORD_SECOND_OPINION=log`.
 2. **Rejected by the verifier?** Look for `verifier=` with a low value. Common
    for a voice it was not trained on: add that person's captures to
    `wake-verifier/positive` and retrain ([wake-word.md](wake-word.md#tuning-and-retraining)).
