@@ -76,6 +76,71 @@ opens the mic immediately and buffers, and starts the session (chime, Gemini)
 on "voice-confirm" or after `VOICE_CONFIRM_TIMEOUT_SECONDS` (1.5 s). A failed
 judgement counts as a confirmation.
 
+## In daily use: 18 Oct – 15 Nov 2026
+
+Collected from the journal with `tools/wake/wake-events-report.py` (28 days
+since the normalised second opinion went live). Labels are heuristics from
+what each session did, not confirmed by listening; the per-event lists are in
+`~/.local/state/ai-speaker/measurements/wake-events-2026-11-15/` on the
+device (they contain household speech and stay there).
+
+| | Count | Per day |
+|---|---|---|
+| Wake events logged (score > 0.05) | 6 544 | ~234 |
+| Rejected by the verifier (score ≥ 0.10) | 2 741 | ~98 |
+| Triggers that passed the verifier | 506 | ~18 |
+| … blocked by the second opinion | 390 (77 %) | ~14 |
+| … confirmed, voice session opened | 115 | ~4 |
+| Sessions started with the button | 22 | |
+
+**False wake-ups.** Of the 113 voice sessions:
+
+| Outcome | Sessions | Verifier median |
+|---|---|---|
+| Did something (tool call or closing phrase) | 64 | 0.98 |
+| Nothing intelligible heard, no tool, idle timeout | 24 | 0.81 |
+| … the same, but failed triggers just before it (the owner trying) | 6 | 0.72 |
+| Cancelled with the button within 15 s | 5 | 0.77 |
+| Speech but no tool call | 14 | 0.87 |
+
+Of the 14 with speech, reading the transcripts: 9 are room conversation
+(Russian and English talk, once a fairy tale read aloud) picked up as a
+command, 2 heard only a single word and noise, 1 was a real command ("включи группу кино", 10 Nov) that Gemini
+answered without calling a tool, 2 are unclear. So roughly 40 unwanted
+sessions in 28 days, about 1.4 a day, against 64 useful ones. The 24 empty
+sessions are either false wake-ups or commands Gemini did not hear (see
+README, far-field over music); without the audio the two cannot be told
+apart, and most of their captures were already rotated away.
+
+A stricter verifier would not separate them cleanly: at 0.8 it keeps 57 of 64
+useful sessions and still passes 15 of 29 empty/cancelled ones; at 0.9, 50 of
+64 and 8 of 29.
+
+**Misses.** The second opinion blocks about 14 triggers a day and Vosk scored
+0.00 on 385 of the 390; microWakeWord reached 0.2 on 16. How many of them were
+real cannot be read from the journal alone. Lower bounds from the pattern of
+retries:
+
+- 9 blocked triggers came within 45 s before a session that was then
+  wanted (did something, heard nothing, or started with the button), and
+  24 more came in pairs within 30 s with no session after (12 pairs:
+  repeated attempts that gave up, or a burst of speech).
+- 13 triggers rejected by the verifier came within 45 s before a wanted
+  session; one scored 0.963 on openWakeWord and 0.25 on the verifier.
+- 24 near-misses (0.05–0.10) came within 45 s before a wanted session.
+- 14 of the 22 button sessions were music requests that worked: the owner
+  going round the wake word. The other 8 were cancelled or heard nothing.
+
+Blocked triggers peak at 19–20 h, when the household talks most; their
+verifier median is 0.67 (useful sessions 0.98).
+
+**Evidence is short-lived.** The 200 MB capture cap holds only about two days:
+356 of the 390 captures on disk on 15 Nov were near-miss captures (score
+0.05–0.10), and the oldest was from 13 Nov. The
+captures of the flagged events of 13–15 Nov (38) were copied next to the
+report; everything older survives only as journal lines. Run the report
+again before the next investigation, it copies whatever is still on disk.
+
 ## Captures
 
 With `WAKE_WORD_CAPTURE=1`, every event where the score passes 0.05, and every
@@ -89,6 +154,10 @@ They are the household's voice and never leave the device (not in git).
 ## Tuning and retraining
 
 ```bash
+# What happened to every wake event since a date: false wake-ups, misses,
+# per-day counts; copies the flagged captures before rotation deletes them
+tools/wake/wake-events-report.py --since "2026-10-18 16:27"
+
 # Score real captures at several thresholds / gains (offline, no hardware)
 ~/.venvs/wake-word/bin/python tools/wake/wake-replay.py score ~/.local/share/ai-speaker/wake-captures --thresholds 0.05,0.1,0.2
 

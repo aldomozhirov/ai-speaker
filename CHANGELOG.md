@@ -20,6 +20,36 @@ Decision records are linked as [D00NN](docs/decisions/README.md).
 
 ---
 
+## 2026-11-15 — Wake-word evidence collected for an investigation
+
+- **What:** new `tools/wake/wake-events-report.py` joins the wake-word and
+  voice-agent journals into one record per wake event (openWakeWord peak,
+  verifier, second-opinion verdict, capture, and what the session did) and
+  flags likely false wake-ups and likely misses. Run over 18 Oct 16:27 –
+  15 Nov 13:20; the report, `events.csv`, `sessions.jsonl` and copies of the
+  38 flagged captures still on disk are in
+  `~/.local/state/ai-speaker/measurements/wake-events-2026-11-15/` (household
+  speech, not in git). Results in
+  [docs/wake-word.md](docs/wake-word.md#in-daily-use-18-oct--15-nov-2026).
+  No setting changed.
+- **Why:** owner: "Collect the information about false positive activations
+  of wake word and when it was not triggered. We will run investigation based
+  on those."
+- **Evidence:** 506 triggers passed the verifier in 28 days; 390 (77 %) were
+  blocked by the second opinion (Vosk 0.00 on 385 of them), 115 opened a
+  session. Of 113 voice sessions, 64 did something; 30 heard nothing
+  intelligible (6 of them right after failed triggers), 5 were cancelled with
+  the button within 15 s, 14 heard speech but called no tool (9 room
+  conversation, 1 real command left undone). Misses, as lower bounds: 9
+  blocked and 13 verifier-rejected triggers within 45 s before a wanted
+  session, 12 pairs of blocked triggers within 30 s with nothing after, 14
+  music requests made with the button. Verifier medians: useful sessions
+  0.98, empty 0.81, blocked 0.67; a verifier at 0.8 would keep 57 of 64
+  useful sessions and still pass 15 of 29 empty or cancelled ones.
+- **Found on the way:** the 200 MB capture cap holds only about two days
+  (356 of 390 captures were near-misses below 0.10), so the audio of
+  everything before 13 Nov is gone; only journal lines remain.
+
 ## 2026-10-18 — Second opinion hears quiet wake-ups
 
 - **What:** `wake_confirm.py` normalises the 3 s window to half of full scale

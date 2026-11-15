@@ -93,12 +93,15 @@ docs/                      the documentation above
 AGENTS.md                  rules for AI coding agents working on this repo
 ```
 
-## Status (2026-10-11)
+## Status (2026-11-15)
 
-Working day to day. Known open items: wake-word sensitivity at a distance and
-over music is "good enough" rather than good; far-field commands over ducked
-music are often not heard by Gemini; the second-opinion check costs about one
-real wake-up in five. See [CHANGELOG.md](CHANGELOG.md) for the latest state and
+Working day to day. Known open items, measured over 18 Oct – 15 Nov
+([docs/wake-word.md](docs/wake-word.md#in-daily-use-18-oct--15-nov-2026)):
+the wake word opens about 1.4 unwanted sessions a day (room conversation, or
+nothing heard) against about 2.3 useful ones; the second opinion blocks about
+14 triggers a day, an unknown share of them real, and retries and button
+presses show it still misses real wake-ups; far-field commands over ducked
+music are often not heard by Gemini. See [CHANGELOG.md](CHANGELOG.md) for the latest state and
 [docs/troubleshooting.md](docs/troubleshooting.md) for what to check first.
 
 Personal, non-commercial project. Free tiers only: no paid service is required.

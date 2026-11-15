@@ -12,6 +12,9 @@ comes from something that actually happened on this device.
 
 ## The wake word does not react
 
+0. **Many times, or since when?** `tools/wake/wake-events-report.py --since …`
+   lists every wake event with what blocked it and flags retries; it also
+   copies the captures before the 200 MB rotation (about two days) deletes them.
 1. **Blocked by the second opinion?** `journalctl _SYSTEMD_USER_UNIT=wake-word.service | grep "blocked by the second opinion"`.
    It was meant to cost about one real wake-up in five; for a quiet or far voice it
    costs far more (17–18 Oct: 25 of 26, see wake-word.md). Softer: `WAKE_WORD_SECOND_OPINION=log`.
@@ -56,6 +59,9 @@ re-enumeration.
 
 ## False wake-ups / timers set by themselves
 
+- `tools/wake/wake-events-report.py` lists sessions that heard nothing, were
+  cancelled with the button, or heard only room conversation, with their
+  verifier score and capture.
 - Look at the second opinion and verifier lines for the false trigger; sort
   its capture into `wake-verifier/negative` and retrain.
 - A timer or alarm set on noise is refused by the tool guard when nothing
