@@ -119,7 +119,9 @@ installing anything that opens streams, changes timing or touches WirePlumber:
 
 ## Known next steps
 
-From the open items: a custom wake-word model trained on this voice; explicit
+From the open items: a custom wake-word model trained on this household
+(agreed and planned step by step in
+[plans/wake-word-custom-model.md](plans/wake-word-custom-model.md)); explicit
 speech start/end for Gemini to fix far-field commands over music; keeping the
 XVF3800 sink running through pauses so the canceller does not re-converge each
 time music starts; a Spotify Web API fallback for play/pause/next when no

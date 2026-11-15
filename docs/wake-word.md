@@ -134,6 +134,23 @@ retries:
 Blocked triggers peak at 19–20 h, when the household talks most; their
 verifier median is 0.67 (useful sessions 0.98).
 
+Two more readings of the same journal (15 Nov):
+
+- The detector's own score for the 63 useful sessions: median 0.37, 17 below
+  0.20, 7 below 0.15, against the 0.10 threshold. Real wake-ups sit on the
+  threshold, so some must fall below 0.05 and leave no trace.
+- The second opinion judges every event at 0.10 or more, also those the
+  verifier rejects. It heard "Jarvis" in 167 such events (125 separate
+  utterances, 65 of them not inside a burst of talk). Whether those were real
+  wake-ups from a voice the verifier does not know, or the second opinion's
+  own mistakes on room speech (in replay it passes about 3 % of it), is not
+  known: nobody has listened to them.
+
+**What happens next:** the owner agreed on 15 Nov to replace the weak first
+stage with a model trained on this household instead of tuning the three
+stages further. The steps are in
+[plans/wake-word-custom-model.md](plans/wake-word-custom-model.md).
+
 **Evidence is short-lived.** The 200 MB capture cap holds only about two days:
 356 of the 390 captures on disk on 15 Nov were near-miss captures (score
 0.05–0.10), and the oldest was from 13 Nov. The

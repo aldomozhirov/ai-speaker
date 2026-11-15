@@ -20,6 +20,36 @@ Decision records are linked as [D00NN](docs/decisions/README.md).
 
 ---
 
+## 2026-11-15 — Plan: a wake-word model trained on this household
+
+- **What:** [docs/plans/wake-word-custom-model.md](docs/plans/wake-word-custom-model.md),
+  a step-by-step plan in ten stages: keep the evidence (longer capture
+  retention, a log of openWakeWord's features, music state on every event);
+  record wake-ups at measured distances in quiet, over music and over talk;
+  label captures; measure the baseline; train a small classifier on
+  openWakeWord's features from the household's voices and the room's own
+  sound, on the Pi; run it log-only for a week; switch; then retire the
+  verifier and demote the second opinion. Documentation only: no code and no
+  setting changed.
+- **Why:** owner, asked for a plan to make the wake word reliable from a
+  distance without false wake-ups from nearby talk: "I'm fine with any
+  approach which can produce a significantly improved result", then "Agree
+  with a plan let's detailed it to exact steps to be done and write to docs."
+- **Evidence for the direction:** the history below. Since August every step
+  has compensated for a first stage that scores this household low: threshold
+  0.5 → 0.10, then a verifier, then a second opinion. In the 28 days the 63
+  useful sessions peaked at a median of 0.37 (17 below 0.20); room speech
+  reaches 0.10 about 116 times a day; the second opinion's engines, which
+  heard 27 and 21 of 42 real wake-ups as detectors, block 77 % of what
+  reaches them; about 1.4 unwanted sessions a day still open. Gain, channel
+  0, other engines, a stricter verifier and a verifier override were all
+  measured and ruled out earlier.
+- **Found on the way:** the second opinion heard "Jarvis" in 167 events (125
+  utterances) that the verifier rejected; unexamined, queued for labelling in
+  the plan. Checked for the plan: the public negative features for
+  openWakeWord are a 17.28 GB download (2 000 hours) plus 185 MB (11 hours);
+  pip offers torch and piper-tts for this Pi (not installed).
+
 ## 2026-11-15 — Wake-word evidence collected for an investigation
 
 - **What:** new `tools/wake/wake-events-report.py` joins the wake-word and

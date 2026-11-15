@@ -74,6 +74,7 @@ the same commit as the change it describes.
 | [docs/troubleshooting.md](docs/troubleshooting.md) | Symptoms and their known causes; traps that have already cost hours |
 | [docs/extending.md](docs/extending.md) | How to add a voice tool, a service, a setting or a DSP profile, and how to test audio changes safely |
 | [docs/tools.md](docs/tools.md) | The measurement, replay and test tools under `tools/` and `tests/` |
+| [docs/plans/](docs/plans/wake-word-custom-model.md) | Agreed plans not yet carried out, step by step: currently the wake-word model trained on this household |
 | [docs/decisions/](docs/decisions/README.md) | Architecture decision records: why each major choice was made and what it cost |
 | [docs/history/](docs/history/README.md) | The original working notes from each stage, kept as written |
 | [CHANGELOG.md](CHANGELOG.md) | Dated history of every change, with the reasoning and the evidence |
@@ -101,7 +102,9 @@ the wake word opens about 1.4 unwanted sessions a day (room conversation, or
 nothing heard) against about 2.3 useful ones; the second opinion blocks about
 14 triggers a day, an unknown share of them real, and retries and button
 presses show it still misses real wake-ups; far-field commands over ducked
-music are often not heard by Gemini. See [CHANGELOG.md](CHANGELOG.md) for the latest state and
+music are often not heard by Gemini. The agreed way forward for the wake word
+is in [docs/plans/wake-word-custom-model.md](docs/plans/wake-word-custom-model.md).
+See [CHANGELOG.md](CHANGELOG.md) for the latest state and
 [docs/troubleshooting.md](docs/troubleshooting.md) for what to check first.
 
 Personal, non-commercial project. Free tiers only: no paid service is required.
