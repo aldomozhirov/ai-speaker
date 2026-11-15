@@ -120,7 +120,7 @@ def clip_stream(parts: list, lead: float = 3.0, tail: float = 12.0, seed: int = 
 
 def replay(stream: np.ndarray, *, threshold: float, patience: int = 1, channel: int | None = None,
            local_intent: bool = False, recorder=None, watchdog=None, refractory: float | None = None,
-           features=None):
+           features=None, shadow: str = "", shadow_threshold: float = 0.5):
     """Run one 2-channel stream through the production loop.
 
     Returns (fires, scores, trigger): fires as (seconds, score-at-firing),
@@ -129,10 +129,12 @@ def replay(stream: np.ndarray, *, threshold: float, patience: int = 1, channel: 
     if channel is not None:
         ww.CHANNEL_INDEX = channel
     ww.local_intent.LOCAL_INTENT_ENABLED = local_intent
-    model, name = ww.load_model()
+    model, name = ww.load_model(shadow)
+    shadow_obj = ww.Shadow(ww.model_name_of(shadow), shadow_threshold, 1) if len(model.models) > 1 else None
     refractory = ww.REFRACTORY_SECONDS if refractory is None else refractory
     gate = ww.DetectionGate(threshold, patience, threshold / 2, round(refractory / ww.FRAME_SECONDS))
-    listener = ww.Listener(model, name, gate, recorder, watchdog, threshold, features=features)
+    listener = ww.Listener(model, name, gate, recorder, watchdog, threshold, features=features,
+                           shadow=shadow_obj)
 
     scores: list[float] = []
     inner = listener.ingest
@@ -316,6 +318,39 @@ def selftest() -> int:
         c.check(size <= 1.2 * 1024 * 1024 and len(wavs) == len(jsons) and 0 < len(wavs) < 5,
                 "recorder: oldest captures are pruned at the size cap, WAV and sidecar together",
                 f"{len(wavs)} kept, {size / 1024:.0f} kB")
+
+    # 8. Shadow model: a copy of the live model under another name must fire
+    # exactly where the live one does, decide nothing, and start a capture.
+    with tempfile.TemporaryDirectory() as tmp:
+        import shutil
+        shadow_path = os.path.join(tmp, "shadow_copy.onnx")
+        shutil.copy(next(p for p in ww.openwakeword.get_pretrained_model_paths()
+                         if os.path.basename(p).startswith("hey_jarvis") and p.endswith(".onnx")), shadow_path)
+        rec = ww.wake_capture.CaptureRecorder(sample_rate=16000, channels=2, frame_samples=ww.FRAME_SAMPLES,
+                                              directory=os.path.join(tmp, "cap"))
+        stream = clip_stream([clip], lead=12.0, tail=8.0)
+        fires, scores, trigger = replay(stream, threshold=0.10, shadow=shadow_path, shadow_threshold=0.10,
+                                        recorder=rec)
+        rec.flush()
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline and not glob.glob(os.path.join(tmp, "cap", "*.json")):
+            time.sleep(0.05)
+        shadow = trigger.listener.shadow
+        caps = glob.glob(os.path.join(tmp, "cap", "*.json"))
+        marks = json.load(open(caps[0]))["marks"] if caps else []
+        ok = shadow is not None and len(fires) == 1 and any(m[1] == "shadow" for m in marks)
+        c.check(ok, "shadow: a second model runs beside the live one, fires with it, relays nothing, marks the capture",
+                f"live fired {len(fires)}x, capture marks {marks}")
+
+        # Stage G: WAKE_WORD_MODEL may be the path of an .onnx head.
+        old = ww.WAKEWORD_MODEL
+        ww.WAKEWORD_MODEL = shadow_path
+        try:
+            model, name = ww.load_model()
+        finally:
+            ww.WAKEWORD_MODEL = old
+        c.check(name == "shadow_copy" and list(model.models) == ["shadow_copy"],
+                "model by path: WAKE_WORD_MODEL=/path/x.onnx loads that head", name)
 
     # 7. Feature log: one row per frame, aligned with what the heads score.
     with tempfile.TemporaryDirectory() as tmp:

@@ -62,6 +62,7 @@ LABELS = {
     "verifier-rejected": "openWakeWord fired, the verifier said no, nothing else around it: mostly room speech",
     "near": "score 0.05-0.10, nothing else around it",
     "in-session": "event while a session was already open (speech in the session)",
+    "shadow-only": "the shadow model fired where the live model logged nothing (score below 0.05): a wake-up only the new model heard, or its false alarm",
 }
 
 RX = {
@@ -71,8 +72,9 @@ RX = {
     "blocked": re.compile(r"blocked by the second opinion \(vosk=([\d.]+) micro=([\d.]+)"),
     "event": re.compile(
         r"wake event: peak=([\d.]+) frames_over_threshold=(\d+) fired=(yes|no)(?: verifier=([\d.]+))?"
-        r"(?: music=(yes|no))?(?: music_s=(\d+))?(?: volume=([\d.]+))?"
+        r"(?: music=(yes|no))?(?: music_s=(\d+))?(?: volume=([\d.]+))?(?: shadow=([\d.]+))?"
     ),
+    "shadow": re.compile(r"Shadow model fired \(score=([\d.]+)"),
     "capture": re.compile(r"Saved capture (\S+/(\d{8}-\d{6})-(\w+)-\d+\.wav) \(\w+, ([\d.]+)s, peak=([\d.]+) at \+([\d.]+)s\)"),
     "start": re.compile(r"Starting session \(trigger=([\w-]+)\)"),
     "not_confirmed": re.compile(r"Wake word not confirmed; no session"),
@@ -111,6 +113,9 @@ class Event:
     music: bool | None = None      # journalled since 2026-11-15 (wake_context.py)
     music_s: int | None = None     # how long the music had been playing
     volume: float | None = None
+    shadow: float | None = None    # shadow model's peak (stage F of the custom-model plan)
+    shadow_fired: bool = False
+    human: str = ""                # real / false / unsure from wake-label.py, if labelled
 
 
 @dataclass
@@ -156,6 +161,7 @@ def parse(lines):
     captures = []                  # (start, end, path, peak)
     open_session: Session | None = None
     last_trigger: Event | None = None
+    shadow_fires = []              # (time, score)
 
     def recent_trigger(t, pred, window=6.0):
         for e in reversed(events):
@@ -191,6 +197,10 @@ def parse(lines):
                 e.music_s = int(m[6]) if m[6] else None
             if m[7]:
                 e.volume = float(m[7])
+            if m[8]:
+                e.shadow = float(m[8])
+        elif m := RX["shadow"].search(msg):
+            shadow_fires.append((t, float(m[1])))
         elif m := RX["capture"].search(msg):
             start = dt.datetime.strptime(m[2], "%Y%m%d-%H%M%S").timestamp()
             captures.append((start, start + float(m[4]), m[1], float(m[5])))
@@ -235,6 +245,7 @@ def parse(lines):
                 s.end = t
                 open_session = None
 
+    attach_shadow(events, shadow_fires)
     # A capture's file name is its start; the event sits at its peak.
     for e in events:
         if e.kind == "button":
@@ -250,9 +261,44 @@ def intelligible(texts):
     return [x for x in texts if x and not FILLER.match(x)]
 
 
+def attach_labels(events, path=Path.home() / ".local/share/ai-speaker/wake-labels.jsonl"):
+    """Hand labels from tools/wake/wake-label.py (latest line per capture wins)."""
+    labels = {}
+    try:
+        with open(path) as f:
+            for line in f:
+                if line.strip():
+                    rec = json.loads(line)
+                    labels[rec["capture"]] = rec["label"]
+    except FileNotFoundError:
+        return 0
+    n = 0
+    for e in events:
+        if e.capture and Path(e.capture).stem in labels:
+            e.human = labels[Path(e.capture).stem]
+            n += 1
+    return n
+
+
+def attach_shadow(events, shadow_fires):
+    """Mark the event each shadow firing belongs to; a firing with no live
+    event near it becomes an event of its own."""
+    for t, score in shadow_fires:
+        near = [e for e in events if e.kind in ("trigger", "event") and abs(e.t - t) <= 3.0]
+        if near:
+            e = min(near, key=lambda e: abs(e.t - t))
+            e.shadow_fired = True
+            e.shadow = max(e.shadow or 0.0, score)
+        else:
+            events.append(Event(t, "shadow", shadow=score, shadow_fired=True))
+    events.sort(key=lambda e: e.t)
+
+
 def label(events, sessions):
     for e in events:
-        if e.kind == "button":
+        if e.kind == "shadow":
+            e.label = "shadow-only"
+        elif e.kind == "button":
             e.label = "button-session" if e.session is not None else ("button-cancel" if e.in_session else "button")
         elif e.session is not None:
             s = sessions[e.session]
@@ -314,7 +360,7 @@ def write(out: Path, events, sessions, since, until, copy: bool):
         w = csv.writer(f)
         w.writerow(["time", "label", "kind", "peak", "frames", "verifier", "decision", "vosk", "micro",
                     "session_trigger", "session_end", "cancel_after_s", "tools", "user_said", "capture", "note",
-                    "music", "music_s", "volume"])
+                    "music", "music_s", "volume", "shadow", "shadow_fired", "labelled"])
         for e in events:
             s = sessions[e.session] if e.session is not None else None
             w.writerow([iso(e.t), e.label, e.kind, fmt(e.peak), e.frames if e.frames is not None else "",
@@ -324,7 +370,8 @@ def write(out: Path, events, sessions, since, until, copy: bool):
                         "; ".join(s.tools) if s else "", " | ".join(s.user)[:300] if s else "",
                         Path(e.capture).name if e.capture else "", e.note,
                         "" if e.music is None else ("yes" if e.music else "no"),
-                        "" if e.music_s is None else e.music_s, fmt(e.volume, ".2f")])
+                        "" if e.music_s is None else e.music_s, fmt(e.volume, ".2f"),
+                        fmt(e.shadow), "yes" if e.shadow_fired else "", e.human])
     with open(out / "sessions.jsonl", "w") as f:
         for s in sessions:
             f.write(json.dumps({**asdict(s), "t": iso(s.t), "end": iso(s.end) if s.end else None},
@@ -345,7 +392,7 @@ def write(out: Path, events, sessions, since, until, copy: bool):
                     shutil.copy2(p, dst / p.name)
             copied[e.label] += 1
 
-    voice = [e for e in events if e.kind != "button"]
+    voice = [e for e in events if e.kind not in ("button", "shadow")]
     days = sorted({iso(e.t)[:10] for e in events})
     per_day = defaultdict(Counter)
     for e in events:
@@ -401,6 +448,25 @@ def write(out: Path, events, sessions, since, until, copy: bool):
             L.append(f"| {title} | {len(on)} | {sum(e.music_s is not None and e.music_s < 15 for e in on)} | "
                      f"{sum(e.music is False for e in rows)} | {sum(e.music is None for e in rows)} |")
 
+    if any(e.human for e in events):
+        L.append("\n## Labelled by hand (wake-label.py)\n")
+        L.append("Where a person listened, their label against this report's guess.\n")
+        L.append("| Guess | real | false | unsure |\n|---|---|---|---|")
+        for k in sorted({e.label for e in events if e.human}):
+            rows = [e for e in events if e.label == k and e.human]
+            L.append(f"| {k} | " + " | ".join(str(sum(e.human == h for e in rows)) for h in ("real", "false", "unsure")) + " |")
+
+    if any(e.shadow is not None or e.shadow_fired for e in events):
+        L.append("\n## Shadow model\n")
+        L.append("Where the live pipeline and the shadow model (stage F) agree and disagree. "
+                 "\"Live opened\" = a voice session started.\n")
+        L.append("| Events | Shadow fired | Shadow quiet |\n|---|---|---|")
+        for title, keys in groups.items():
+            rows = [e for e in voice if e.label in keys]
+            L.append(f"| {title} | {sum(e.shadow_fired for e in rows)} | {sum(not e.shadow_fired for e in rows)} |")
+        only = [e for e in events if e.label == "shadow-only"]
+        L.append(f"| Live logged nothing (score < 0.05) | {len(only)} | – |")
+
     def table(title, rows):
         L.append(f"\n## {title} ({len(rows)})\n")
         if not rows:
@@ -420,6 +486,7 @@ def write(out: Path, events, sessions, since, until, copy: bool):
     table("Sessions to read (speech, no tool call)", [e for e in voice if e.label == "fp-review"])
     table("Likely misses", [e for e in voice if e.label in ("miss-retry", "miss-retry-verifier", "miss-repeat")])
     table("Blocked, unexplained", [e for e in voice if e.label == "blocked"])
+    table("Shadow model only", [e for e in events if e.label == "shadow-only"])
     (out / "summary.md").write_text("\n".join(L) + "\n")
     return labels, copied
 
@@ -435,6 +502,7 @@ def main(argv=None):
     out = args.out or OUT_ROOT / f"wake-events-{dt.date.today().isoformat()}"
     events, sessions = parse(journal(args.since, args.until))
     label(events, sessions)
+    attach_labels(events)
     labels, copied = write(out, events, sessions, args.since, args.until, not args.no_copy)
     print(f"{len(events)} events, {len(sessions)} sessions -> {out}")
     for k, v in labels.most_common():

@@ -88,6 +88,15 @@ VERIFIER_PATH = os.environ.get(
 )
 VERIFIER_THRESHOLD = float(os.environ.get("WAKE_WORD_VERIFIER_THRESHOLD", "0.5"))
 
+# A second wake-word model that runs on every frame but decides nothing:
+# it only journals when it would have fired and saves a capture of it
+# ("shadow"), so a new model can be compared with the live pipeline on the
+# room's real life before it replaces it (docs/plans/wake-word-custom-model.md,
+# stage F). Path to an ONNX head on openWakeWord's features; empty = off.
+SHADOW_MODEL = os.environ.get("WAKE_WORD_SHADOW_MODEL", "")
+SHADOW_THRESHOLD = float(os.environ.get("WAKE_WORD_SHADOW_THRESHOLD", "0.5"))
+SHADOW_PATIENCE = int(os.environ.get("WAKE_WORD_SHADOW_PATIENCE", "1"))
+
 # Capture health -- see read_exact() and MicWatchdog.
 STALL_SECONDS = float(os.environ.get("WAKE_WORD_STALL_SECONDS", "10"))
 SILENCE_SECONDS = float(os.environ.get("WAKE_WORD_SILENCE_SECONDS", "10"))
@@ -525,6 +534,20 @@ class DetectionGate:
         self._since_fire = 0
 
 
+class Shadow:
+    """A model that runs next to the live one and only reports (see
+    SHADOW_MODEL). Its own DetectionGate, so it fires as it would live."""
+
+    def __init__(self, name: str, threshold: float, patience: int) -> None:
+        self.name = name
+        self.threshold = threshold
+        self.gate = DetectionGate(threshold, patience, threshold / 2,
+                                  round(REFRACTORY_SECONDS / FRAME_SECONDS))
+
+    def update(self, score: float) -> bool:
+        return self.gate.update(score)
+
+
 class Listener:
     """The one place a captured frame is consumed.
 
@@ -549,8 +572,10 @@ class Listener:
         second_opinion: "wake_confirm.SecondOpinion | None" = None,
         features=None,
         context=None,
+        shadow: Shadow | None = None,
     ) -> None:
         self._model = model
+        self.shadow = shadow
         # Every frame's features go to the feature log (wake_features.py);
         # the context (wake_context.py) is added to each `wake event:` line.
         self.features = features if features is not None else wake_features.NullFeatureLog()
@@ -570,7 +595,16 @@ class Listener:
         if self._watchdog is not None:
             self._watchdog.update(stereo)
         mono = np.ascontiguousarray(stereo[:, CHANNEL_INDEX])
-        score = float(self._model.predict(mono).get(self._model_name, 0.0))
+        predictions = self._model.predict(mono)
+        score = float(predictions.get(self._model_name, 0.0))
+        shadow_score = None
+        if self.shadow is not None:
+            shadow_score = float(predictions.get(self.shadow.name, 0.0))
+            if self.shadow.update(shadow_score):
+                LOG.info("Shadow model fired (score=%.3f, live score=%.3f)", shadow_score, score)
+                # A capture of every shadow firing, also where the live
+                # model stayed quiet: the disagreements are what to label.
+                self.recorder.request_snapshot("shadow")
         # The row predict() just added: one per 80 ms frame.
         self.features.push(self._model.preprocessor.get_features(1)[0, 0], score)
         confidence = None
@@ -593,11 +627,12 @@ class Listener:
                 verdict = "ok" if confidence >= self._verifier.threshold else "rejected"
             self.second_opinion.push(mono, score, verdict)
         if DEBUG_SCORES:
-            self._log_scores(score, fired, confidence)
+            self._log_scores(score, fired, confidence, shadow_score)
         self.recorder.push(raw, score, fired)
         return mono, score, fired
 
-    def _log_scores(self, score: float, fired: bool, confidence: float | None = None) -> None:
+    def _log_scores(self, score: float, fired: bool, confidence: float | None = None,
+                    shadow_score: float | None = None) -> None:
         # Log every frame while there's actual signal (not just a 1-in-N
         # sample) so a ~700ms phrase's true peak isn't missed; stay quiet
         # during silence so the journal isn't flooded. gated_score is the
@@ -608,7 +643,8 @@ class Listener:
                 "raw_score=%.3f gated_score=%.3f", score, score if self.gate.passing else 0.0
             )
             if self._event is None:
-                self._event = {"peak": 0.0, "over": 0, "fired": False, "quiet": 0, "verifier": None}
+                self._event = {"peak": 0.0, "over": 0, "fired": False, "quiet": 0, "verifier": None,
+                               "shadow": None}
             event = self._event
             event["peak"] = max(event["peak"], score)
             if confidence is not None:
@@ -622,17 +658,20 @@ class Listener:
         if self._event is not None:
             event = self._event
             event["fired"] = event["fired"] or fired
+            if shadow_score is not None:
+                event["shadow"] = max(event["shadow"] or 0.0, shadow_score)
             # One line per utterance with its real peak. The score at the
             # moment of firing is only the rising edge -- the frame that first
             # crossed -- and badly understates how well the phrase scored.
             if event["quiet"] * FRAME_SECONDS >= 1.0:
                 LOG.info(
-                    "wake event: peak=%.3f frames_over_threshold=%d fired=%s%s%s",
+                    "wake event: peak=%.3f frames_over_threshold=%d fired=%s%s%s%s",
                     event["peak"],
                     event["over"],
                     "yes" if event["fired"] else "no",
                     "" if event["verifier"] is None else " verifier=%.3f" % event["verifier"],
                     self.context.describe(),
+                    "" if event["shadow"] is None else " shadow=%.3f" % event["shadow"],
                 )
                 self._event = None
 
@@ -780,12 +819,23 @@ def run_stream(stdout, listener: Listener, trigger: WakeTrigger) -> None:
             _handle_voice_detection(stdout, listener, trigger, score)
 
 
-def load_model() -> tuple[Model, str] | None:
-    candidates = [
-        p
-        for p in openwakeword.get_pretrained_model_paths()
-        if os.path.basename(p).startswith(WAKEWORD_MODEL)
-    ]
+def model_name_of(path: str) -> str:
+    return os.path.basename(path)[:-5]  # strip ".onnx", matches Model's own naming
+
+
+def load_model(shadow_path: str = "") -> tuple[Model, str] | None:
+    """The live model -- WAKE_WORD_MODEL is a bundled name ("hey_jarvis") or
+    the path of an .onnx head -- plus, if given, a shadow model in the same
+    openWakeWord Model, so both read the same features."""
+    if WAKEWORD_MODEL.endswith(".onnx"):
+        path = os.path.expanduser(WAKEWORD_MODEL)
+        candidates = [path] if os.path.exists(path) else []
+    else:
+        candidates = [
+            p
+            for p in openwakeword.get_pretrained_model_paths()
+            if os.path.basename(p).startswith(WAKEWORD_MODEL)
+        ]
     if not candidates:
         LOG.error(
             "No bundled openWakeWord model matches %r (available under %s)",
@@ -794,7 +844,15 @@ def load_model() -> tuple[Model, str] | None:
         )
         return None
     model_path = candidates[0]
-    model_name = os.path.basename(model_path)[:-5]  # strip ".onnx", matches Model's own naming
+    model_name = model_name_of(model_path)
+    paths = [model_path]
+    if shadow_path:
+        shadow_path = os.path.expanduser(shadow_path)
+        if not os.path.exists(shadow_path) or model_name_of(shadow_path) == model_name:
+            LOG.error("Shadow model %s is missing or has the live model's name; running without it",
+                      shadow_path)
+        else:
+            paths.append(shadow_path)
 
     LOG.info(
         "Loading openWakeWord model=%s (%s) threshold=%.2f patience=%d refractory=%.1fs",
@@ -804,7 +862,10 @@ def load_model() -> tuple[Model, str] | None:
         PATIENCE_FRAMES,
         REFRACTORY_SECONDS,
     )
-    return Model(wakeword_model_paths=[model_path]), model_name
+    if len(paths) > 1:
+        LOG.info("Shadow model %s threshold=%.2f patience=%d (journal and capture only)",
+                 paths[1], SHADOW_THRESHOLD, SHADOW_PATIENCE)
+    return Model(wakeword_model_paths=paths), model_name
 
 
 def main() -> int:
@@ -812,10 +873,13 @@ def main() -> int:
         level=logging.INFO, format="%(levelname)s %(name)s: %(message)s"
     )
 
-    loaded = load_model()
+    loaded = load_model(SHADOW_MODEL)
     if loaded is None:
         return 1
     model, model_name = loaded
+    shadow = None
+    if len(model.models) > 1:
+        shadow = Shadow(model_name_of(os.path.expanduser(SHADOW_MODEL)), SHADOW_THRESHOLD, SHADOW_PATIENCE)
 
     if local_intent.available():
         LOG.info(
@@ -895,6 +959,7 @@ def main() -> int:
         second_opinion=second_opinion,
         features=features,
         context=context,
+        shadow=shadow,
     )
 
     trigger = WakeTrigger(COOLDOWN_SECONDS)

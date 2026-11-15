@@ -13,7 +13,9 @@ Change a setting by editing the unit **in the repo**, then
 
 | Variable | Unit | Default | Meaning |
 |---|---|---|---|
-| `WAKE_WORD_MODEL` | hey_jarvis | hey_jarvis | openWakeWord model |
+| `WAKE_WORD_MODEL` | hey_jarvis | hey_jarvis | openWakeWord model: a bundled name, or the path of an `.onnx` head (a household model) |
+| `WAKE_WORD_SHADOW_MODEL` | – | off | Path of a second `.onnx` head that runs on every frame and only journals (`Shadow model fired`, `shadow=` on `wake event:` lines) and captures (kind `shadow`) where it would fire; decides nothing |
+| `WAKE_WORD_SHADOW_THRESHOLD` / `_PATIENCE` | – | 0.5 / 1 | The shadow model's own detection settings |
 | `WAKE_WORD_THRESHOLD` | 0.10 | 0.5 | Score that counts as a detection |
 | `WAKE_WORD_PATIENCE` | 1 | 2 | Frames at/above threshold needed |
 | `WAKE_WORD_COOLDOWN` | 1.5 | 1.5 | Seconds between relayed triggers |

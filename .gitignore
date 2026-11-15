@@ -14,6 +14,9 @@ wake-captures/
 wake-verifier/
 wake-features/
 wake-enroll/
+wake-train/
+wake-model/
+wake-labels.jsonl
 *.f16
 private-backup-*.tar*
 

@@ -1,7 +1,8 @@
 # Plan: a wake-word model trained on this household
 
 - **Status:** agreed by the owner on 2026-11-15. Stage A live since
-  2026-11-15 14:56 (one check due 17 Nov); B next.
+  2026-11-15 14:56 (one check due 17 Nov). Tooling for B–G built and tested
+  on 2026-11-15; next: the owner's recordings (B2) and labels (C3).
 - **Tick a step off here** (`[x]`, with the date) in the commit that completes
   it, and put the measured result next to it.
 - Background: [wake-word.md](../wake-word.md) (how it works now and the
@@ -198,9 +199,14 @@ phone or laptop in the room).
 
 **B4. Other voices through the real microphone (recommended, 2 × 15 min of
 playback, nobody has to speak).**
-- [ ] `wake-enroll.py rerecord-make` writes a 15-minute WAV: 200 synthetic
+- [x] (2026-11-15, as `tools/wake/wake-rerecord.py make --set A|B`; sets A
+  and B never share a clip) writes a 15-minute WAV: 200 synthetic
   "Hey Jarvis" from the voices of E3, four seconds apart, with a sync chirp at
   the start and every minute.
+- [x] (2026-11-15) Tool: `wake-rerecord.py record --set A --position … --round 1`
+  stops voice-agent, records, and aligns every clip on the sweeps (a
+  delayed, 100 ppm-drifting, noisy copy aligned to 0.0 ms). Takes carry the
+  exact phrase end.
 - [ ] **Owner** plays it from a phone or laptop speaker (not from the speaker
   itself) at two of the positions while `wake-enroll.py rerecord` records and
   cuts it into takes by the chirps.
@@ -212,20 +218,21 @@ playback, nobody has to speak).**
 ## Stage C — labels
 
 **C1. One label file instead of folders.**
-- [ ] `~/.local/share/ai-speaker/wake-labels.jsonl`: one line per capture:
+- [x] (2026-11-15) `~/.local/share/ai-speaker/wake-labels.jsonl`: one line per capture:
   file name, `real` / `false` / `unsure`, who spoke, when labelled. Captures
   are never moved.
-- [ ] Import the existing hand-sorted clips (`wake-verifier/positive` 39,
+- [x] (2026-11-15: 39 real, 62 false, 2 unsure imported) Import the existing hand-sorted clips (`wake-verifier/positive` 39,
   `negative` 62, `unlabelled-ambiguous` 2) and copy their audio into a
   `wake-captures/kept/` folder that rotation does not touch.
-- [ ] Any capture that gets a label is copied to `kept/` the same way.
+- [x] (2026-11-15) Any capture that gets a label is copied to `kept/` the same way.
 
 **C2. Tool `tools/wake/wake-label.py`.**
-- [ ] Serves a page on the home network only while it runs, with a random
+- [x] (2026-11-15) Serves a page on the home network only while it runs, with a random
   token in the address printed on start; standard library only. Each clip
   plays in the browser, with three buttons and "who". Clips are played in the
   browser, not through the speaker (the speaker would hear itself).
-- [ ] Queue order, most useful first:
+- [x] (2026-11-15; 254 clips queued from 18 Oct on, built in ~8 s; checked at
+  phone width) Queue order, most useful first:
   1. sessions (`ok`, `fp-*`, `empty-after-retry`) and button presses;
   2. blocked by the second opinion (about 14 a day);
   3. heard by the second opinion but rejected by the verifier (125 utterances
@@ -233,7 +240,8 @@ playback, nobody has to speak).**
      verifier does not know);
   4. retries (`miss-*`, `near-retry`);
   5. a random 200 of the verifier-rejected ones (to confirm they are false).
-- [ ] `wake-events-report.py` reads the label file and uses a label instead of
+- [x] (2026-11-15, as a `labelled` column and a "guess against label" table)
+  `wake-events-report.py` reads the label file and uses a label instead of
   its heuristic where one exists.
 
 **C3. Label.** **Owner**, about 10 minutes twice a week while data collects.
@@ -251,7 +259,7 @@ the baseline, so D must be measured first).
 ## Stage D — baseline
 
 **D1. Tool `tools/wake/wake-eval.py`** (wake-word venv).
-- [ ] `wake-eval.py baseline`: for every take of rounds 1 and 2, from the
+- [x] (2026-11-15, tool; tested on a made-up round) `wake-eval.py baseline`: for every take of rounds 1 and 2, from the
   journal inside the take's five seconds: base peak, verifier verdict,
   second-opinion verdict, would a session have opened. Output: a table
   position × condition × person with the share detected at each stage, and
@@ -261,7 +269,7 @@ the baseline, so D must be measured first).
 - [ ] Put both tables into wake-word.md ("In daily use") and the headline
   numbers into the "Now" column above.
 - [ ] **Owner:** confirm or change the targets.
-- [ ] From the same recordings, for stage I: base peak per take on channel 0
+- [x] (2026-11-15, in the baseline's offline table) From the same recordings, for stage I: base peak per take on channel 0
   against channel 1, by position.
 
 ---
@@ -269,12 +277,14 @@ the baseline, so D must be measured first).
 ## Stage E — train and evaluate offline
 
 **E1. Environment.**
-- [ ] `python3 -m venv ~/.venvs/wake-train`; `deps/requirements-wake-train.txt`
+- [x] (2026-11-15; installed and working: torch 2.15.0+cpu, piper-tts 1.8.0,
+  onnx 1.23.2, onnxruntime 1.32.0) `python3 -m venv ~/.venvs/wake-train`; `deps/requirements-wake-train.txt`
   with pinned `torch` (CPU), `onnx`, `piper-tts`, `openwakeword==0.4.0`,
   `numpy`, `scipy`. A tool venv like `tools/wake-bench`: not part of
   `bootstrap-user`. (Checked 2026-11-15: pip offers torch 2.15.0 and piper-tts
   1.8.0 for this Pi; neither has been installed or run here.)
-- [ ] Download to `~/.local/share/ai-speaker/wake-train/public/`:
+- [x] (2026-11-15; the 185 MB file is in, the 17.28 GB one downloading,
+  rate-limited; RIRs are generated instead of downloaded) Download to `~/.local/share/ai-speaker/wake-train/public/`:
   `openwakeword_features_ACAV100M_2000_hrs_16bit.npy` (17.28 GB, about 2 000
   hours of general speech, music and noise as features) and
   `validation_set_features.npy` (185 MB, about 11 hours) from
@@ -284,33 +294,42 @@ the baseline, so D must be measured first).
 
 **E2. Two checks before any training** (an hour; they can stop the plan
 early and cheaply).
-- [ ] The public features and the room's own log (A2) are on the same scale:
+- [x] (2026-11-15: **pass.** Overall mean 1.94 / 1.67, spread 15.6 / 15.0,
+  ranges −69…85 / −62…73, per-feature means correlate 0.95. The public set
+  is (5 625 000, 16, 96) float16 windows; the validation set (481 345, 96)
+  float32 rows.) The public features and the room's own log (A2) are on the same scale:
   per-feature mean and spread of a day of each, side by side. If not, find
   the conversion before going on.
-- [ ] openwakeword 0.4.0 loads a second, custom ONNX head next to
+- [x] (2026-11-15: **pass**, `wake-model-train.py check`: both heads in one
+  `Model`, the custom head's live score equals the offline score exactly
+  after the 16-frame warm-up; 5.9 ms a frame for both) openwakeword 0.4.0 loads a second, custom ONNX head next to
   `hey_jarvis` in one `Model(wakeword_model_paths=[…, …])` and returns both
   scores from one `predict()`. Test with a dummy head exported from torch. If
   it does not: evaluate the head directly with onnxruntime on
   `get_features(16)`, the way `Verifier.confidence` does today.
 
 **E3. Synthetic speech.** `tools/wake/wake-model-train.py synth`
-- [ ] Positives: "Hey Jarvis" from every free Piper voice that fits, English
+- [x] (2026-11-15, tool: en_US-libritts_r (904 speakers), en_GB-vctk (109),
+  four Russian voices; one worker makes about 2 clips a second) Positives: "Hey Jarvis" from every free Piper voice that fits, English
   (including the multi-speaker ones) and Russian voices saying the English
   phrase and "хей джарвис"; speed and expressiveness varied. Target 5 000
   clips.
-- [ ] Near-phrases, as negatives: 1 000 clips of things that sound alike
+- [x] (2026-11-15, tool) Near-phrases, as negatives: 1 000 clips of things that sound alike
   ("hey Travis", "jar of", "harvest", "nervous", "hey Jarvis" cut after the
   first word, and Russian words the labels of C show firing).
-- [ ] Clips go to `wake-train/synth/` (not household audio, but too large for
+- [x] Clips go to `wake-train/synth/` (not household audio, but too large for
   git).
 
 **E4. Features.** `wake-model-train.py features`
-- [ ] Every positive clip (real and synthetic) in four versions: as is; with
+- [x] (2026-11-15, tool; real recordings get as-is, −6 dB, +6 dB and over room
+  sound instead of reverb, since they already carry the room) Every positive clip (real and synthetic) in four versions: as is; with
   a room impulse response; mixed over a "bed" of B1 or over a false-labelled
   capture at 0–20 dB signal-to-noise; both. Real clips also at −6 and +6 dB.
-- [ ] Features with openWakeWord's own preprocessor at the four frame phases
+- [x] (2026-11-15, changed: **streaming** features, as live, because the
+  batch path differs by up to 10 on a scale of 60; clips sit at random
+  sample offsets in the stream, which varies the frame phase) Features with openWakeWord's own preprocessor at the four frame phases
   the verifier trainer already uses (0, 320, 640, 960 samples).
-- [ ] Which windows of a positive count as "the wake word": those ending 0 to
+- [x] (2026-11-15) Which windows of a positive count as "the wake word": those ending 0 to
   0.4 s after the end of the phrase. End of the phrase: known for synthetic
   clips; found by energy in quiet takes; otherwise the peak of the pretrained
   score if it reached 0.05, else the peak of the first-pass model, confirmed
@@ -329,22 +348,24 @@ Room log rows within 5 s of a session, a button press, a `real` label, a
 second-opinion pass or an enrolment session are left out of the negatives.
 
 **E6. Train.** `wake-model-train.py train`, niced, one thread, overnight.
-- [ ] Head: the 16 × 96 window flattened, three blocks of
+- [x] (2026-11-15, tool) Head: the 16 × 96 window flattened, three blocks of
   (linear 64, layer norm, ReLU), one output. Start from this (it is what
   openWakeWord's own trainer uses) and change it only on evidence.
-- [ ] Each batch: 256 positives, 2 048 negatives (half public, a quarter room
+- [x] (2026-11-15, tool; public and room samples of 300 000 windows each are
+  held in memory, ~2 GB) Each batch: 256 positives, 2 048 negatives (half public, a quarter room
   log, a quarter hard negatives). After every pass, all room-log training
   windows are scored and those above 0.1 join the hard negatives.
-- [ ] Keep the checkpoint with the best recall on the training-side real
+- [x] (2026-11-15, tool; held out: one real source in five) Keep the checkpoint with the best recall on the training-side real
   clips held out by fold, at the threshold that gives at most one false alarm
   in the second week of room log.
-- [ ] Export `~/.local/share/ai-speaker/wake-model/hey_jarvis_home_v1.onnx`
+- [x] (2026-11-15, tool; exported graph matches the network to 1e-5) Export `~/.local/share/ai-speaker/wake-model/hey_jarvis_home_v1.onnx`
   and a `.json` beside it: date, counts of each kind of data, split, chosen
   threshold and patience, the figures of E7. Not in git.
-- [ ] Note the run time and the load on the Pi here: ____.
+- [ ] Note the run time and the load on the Pi here: ____. (A 2 000-step trial
+  on the October clips took 2.3 min on one thread; a full run is 30 000 steps.)
 
 **E7. Evaluate.** `wake-eval.py model <onnx>`
-- [ ] Threshold and patience: grid 0.3–0.9 × 1–3 frames on the second week of
+- [x] (2026-11-15, tool; run once on a trial model) Threshold and patience: grid 0.3–0.9 × 1–3 frames on the second week of
   room log; take the best recall with at most one false alarm in that week.
 - [ ] Report at that setting: recall on round 2 by position × condition ×
   person, next to the baseline of D; false alarms on the public 11 hours; the
@@ -362,17 +383,18 @@ second-opinion pass or an enrolment session are left out of the negatives.
 ## Stage F — shadow
 
 **F1. Code.** `src/wake_word.py`
-- [ ] `WAKE_WORD_SHADOW_MODEL` (path, default off), `WAKE_WORD_SHADOW_THRESHOLD`,
+- [x] (2026-11-15; in the repo, default off) `WAKE_WORD_SHADOW_MODEL` (path, default off), `WAKE_WORD_SHADOW_THRESHOLD`,
   `WAKE_WORD_SHADOW_PATIENCE`. Both heads sit in the one openWakeWord `Model`
   (the features are computed once), the shadow has its own `DetectionGate`
   and relays nothing.
-- [ ] Journal: `shadow: peak=… fired=yes|no` per event, and the shadow's peak
+- [x] (2026-11-15, as `Shadow model fired (score=…)` and `shadow=` on the
+  `wake event:` line) Journal: `shadow: peak=… fired=yes|no` per event, and the shadow's peak
   on the existing `wake event:` line.
-- [ ] A shadow firing starts a capture even when the base score stayed below
+- [x] (2026-11-15) A shadow firing starts a capture even when the base score stayed below
   0.05 (capture kind `shadow`), so every disagreement has audio.
-- [ ] Tests in `tests/test_wake_trigger.py` and `wake-replay.py selftest`;
+- [x] (2026-11-15: selftest "shadow" and "model by path" checks) Tests in `tests/test_wake_trigger.py` and `wake-replay.py selftest`;
   second-instance run on the live graph; then install.
-- [ ] `wake-events-report.py`: shadow columns; a table "old fired / new
+- [x] (2026-11-15; disagreements also head the labelling queue) `wake-events-report.py`: shadow columns; a table "old fired / new
   fired" with the four combinations; disagreements go to the top of the
   labelling queue.
 
@@ -395,7 +417,7 @@ second-opinion pass or an enrolment session are left out of the negatives.
 
 - [ ] **Owner:** yes / no on the shadow report.
 - [ ] `wake-word.service`: `WAKE_WORD_MODEL` = the new model's path
-  (`load_model()` learns to take a path as well as a bundled name),
+  (`load_model()` takes a path as well as a bundled name: done 2026-11-15),
   `WAKE_WORD_THRESHOLD` and `WAKE_WORD_PATIENCE` = the values of E7,
   `WAKE_WORD_VERIFIER=0`, `WAKE_WORD_SECOND_OPINION=log`. Each line with a
   comment giving the date and the evidence. The pretrained model becomes the

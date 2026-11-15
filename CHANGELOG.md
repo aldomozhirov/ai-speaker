@@ -20,6 +20,43 @@ Decision records are linked as [D00NN](docs/decisions/README.md).
 
 ---
 
+## 2026-11-15 — Wake-word tooling for stages B4–G of the plan
+
+- **What:** the tools the [custom-model plan](docs/plans/wake-word-custom-model.md)
+  needs after the recordings, all tested on the data there is:
+  - `tools/wake/wake-label.py`: a phone page to label captures; the 103
+    hand-sorted clips of October imported as labels (39 real, 62 false, 2
+    unsure) and kept out of rotation in `wake-captures/kept/`.
+  - `tools/wake/wake-eval.py baseline` and `model`: today's pipeline on the
+    enrolment takes, and a trained head against it (takes, real captures,
+    room feature log, public validation set; threshold × patience grid).
+  - `tools/wake/wake-model-train.py check | synth | features | train` in a new
+    wake-train venv (`deps/requirements-wake-train.txt`, torch CPU and Piper),
+    with Piper voices of 1 017 speakers and openWakeWord's public features
+    (17.28 GB, downloading).
+  - `tools/wake/wake-rerecord.py`: synthetic voices played from a phone and
+    recorded through the array, aligned on sweep tones.
+  - `wake_word.py`: `WAKE_WORD_SHADOW_MODEL` (a second head that only
+    journals and captures; off) and `WAKE_WORD_MODEL` as a path.
+  - `wake-events-report.py`: shadow firings and hand labels.
+  Nothing changed in what the speaker does: the shadow is off and the model
+  setting unchanged.
+- **Why:** owner: "Let's build necessary tooling for other stages first".
+- **Evidence:** both early checks of stage E2 pass: the public features are
+  on the room log's scale (means 1.94 / 1.67, per-feature means correlate
+  0.95), and a custom head runs beside the pretrained one in one
+  openWakeWord `Model` with live and offline scores identical. Selftest
+  (with new shadow and model-by-path checks) and unit tests pass. A trial
+  run of synth → features → train → eval on the October clips works end to
+  end (the trial model itself is meaningless and was deleted).
+- **Found on the way:** openWakeWord's batch features differ from the
+  streaming ones the live loop uses (up to 10 on a scale of 60), so training
+  uses streaming features. Piper's onnxruntime used every core: two synthesis
+  workers pushed the load to 9 for a few minutes (no capture stalls or drops
+  in the journal, status OK); the tools now pin one thread per worker and
+  default to one worker. The user journal only reaches back to 14 Oct, so
+  the October labels cannot be matched to journal events.
+
 ## 2026-11-15 — Wake-word enrolment recorder (plan stage B1)
 
 - **What:** `tools/wake/wake-enroll.py`: cued "Hey Jarvis" recordings at

@@ -195,6 +195,28 @@ Since 2026-11-15, for the [custom-model plan](plans/wake-word-custom-model.md):
 Cost, measured on a second instance next to the live one: about 0.5–0.9 % of
 one core on top of ~12 %.
 
+## Tooling for the household model
+
+Built 2026-11-15 for the [custom-model plan](plans/wake-word-custom-model.md);
+every tool is described in [tools.md](tools.md#wake-word-toolswake-toolswake-bench).
+
+- Record: `wake-enroll.py` (people at the five positions), `wake-rerecord.py`
+  (synthetic voices played from a phone).
+- Label: `wake-label.py serve`, a page for the phone.
+- Measure: `wake-eval.py baseline` (today's pipeline on the takes) and
+  `wake-eval.py model` (a trained head against it).
+- Train: `wake-model-train.py` in the wake-train venv.
+- Try live without risk: `WAKE_WORD_SHADOW_MODEL` runs a trained head beside
+  the live one and only reports; `WAKE_WORD_MODEL` takes a head's path for
+  the switch.
+
+Two facts found while building it: openWakeWord's batch feature extraction
+(`embed_clips`) gives different numbers from the streaming path the live loop
+uses (up to 10 on a scale of 60), so all training features are computed the
+streaming way; and Piper and openWakeWord's onnxruntime sessions use every
+core unless told otherwise (two synthesis workers pushed the load to 9), so
+the tools pin them to one thread and default to one worker.
+
 ## Tuning and retraining
 
 ```bash
