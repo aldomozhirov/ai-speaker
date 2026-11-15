@@ -162,17 +162,44 @@ again before the next investigation, it copies whatever is still on disk.
 
 With `WAKE_WORD_CAPTURE=1`, every event where the score passes 0.05, and every
 button press, saves both channels from 3 s before to 5 s after (10 s for the
-button) plus a JSON file with the per-frame scores and what was decided, into
-`~/.local/share/ai-speaker/wake-captures/`. The oldest files are deleted beyond
-200 MB. These recordings are the basis for every tuning decision: thresholds,
+button) plus a JSON file with the per-frame scores, what was decided, and
+whether music was playing, into `~/.local/share/ai-speaker/wake-captures/`.
+These recordings are the basis for every tuning decision: thresholds,
 channel, gain and the verifier were all chosen on them, not on journal lines.
 They are the household's voice and never leave the device (not in git).
+
+Rotation since 2026-11-15, in two pools: near-misses (score 0.05–0.10, nine
+in ten files) beyond 200 MB, a few days' worth; everything else beyond
+4 000 MB, about two months. Before, one shared 200 MB cap let the near-misses
+push every detection out within two days. Labelled captures go to `kept/`,
+which is never rotated.
+
+## Feature log and playback context
+
+Since 2026-11-15, for the [custom-model plan](plans/wake-word-custom-model.md):
+
+- **Feature log** (`wake_features.py`): openWakeWord's 96 speech features of
+  every 80 ms frame and the frame's score, as float16 rows in
+  `~/.local/share/ai-speaker/wake-features/YYYYMMDD-HHMMSS.f16` (one file an
+  hour or per capture restart; row n is n × 80 ms after the time in the
+  name; any 16 consecutive rows are the window a model scores;
+  `wake_features.read()` loads one). About 210 MB a day, kept about eight
+  weeks. It is not audio and cannot be played back, but it is derived from
+  the room's sound and stays on the device. It lets any new model be checked
+  against weeks of what the speaker really heard.
+- **Playback context** (`wake_context.py`): every 3 s it reads from PipeWire
+  whether a music stream is running and the volume; each `wake event:` line
+  ends with `music=yes music_s=42 volume=0.34` (or `music=no …`), and each
+  capture's JSON has the same under `context`.
+
+Cost, measured on a second instance next to the live one: about 0.5–0.9 % of
+one core on top of ~12 %.
 
 ## Tuning and retraining
 
 ```bash
 # What happened to every wake event since a date: false wake-ups, misses,
-# per-day counts; copies the flagged captures before rotation deletes them
+# per-day counts, music at the time; copies the flagged captures
 tools/wake/wake-events-report.py --since "2026-10-18 16:27"
 
 # Score real captures at several thresholds / gains (offline, no hardware)

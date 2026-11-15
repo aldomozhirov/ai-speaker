@@ -35,6 +35,23 @@ Environment=LOCAL_INTENT_ENABLED=0
 # utterances (tools/wake/wake-replay.py score). Set to 0 to stop
 # recording; the other knobs are at the top of wake_capture.py.
 Environment=WAKE_WORD_CAPTURE=1
+# Since 2026-11-15 the near-misses (score below WAKE_WORD_THRESHOLD, nine in
+# ten files) rotate in their own 200 MB pool (WAKE_WORD_CAPTURE_NEAR_MAX_MB),
+# and everything else -- detections, verifier rejections, button presses --
+# is kept up to this cap: ~60 MB a day, so about two months. With one shared
+# 200 MB the near-misses pushed every detection out within two days, before
+# anyone could label it. Labelled captures are copied to wake-captures/kept/,
+# which is never rotated. docs/plans/wake-word-custom-model.md, step A1.
+Environment=WAKE_WORD_CAPTURE_MAX_MB=4000
+# openWakeWord's 96 speech features of every 80 ms frame, plus the score, in
+# ~/.local/share/ai-speaker/wake-features (wake_features.py): ~210 MB a day,
+# oldest deleted beyond WAKE_WORD_FEATURE_LOG_MAX_MB (12000, ~8 weeks). Not
+# audio; it lets a new wake-word model be checked against weeks of this
+# room's sound. Local only. Since 2026-11-15, plan step A2.
+Environment=WAKE_WORD_FEATURE_LOG=1
+# Whether music was playing (and for how long) and the volume are added to
+# every `wake event:` line and capture (wake_context.py, on by default;
+# WAKE_WORD_CONTEXT=0 turns it off). Plan step A3.
 # Second-stage check, since 2026-10-05: a frame at or above the threshold only
 # counts when a small model trained on this household's own "Hey Jarvis"
 # captures agrees (see Verifier in wake_word.py). Added after a meeting in

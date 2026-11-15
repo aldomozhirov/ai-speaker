@@ -43,7 +43,7 @@ start order:
 | `volume-buttons` | `volume-buttons.py` | GPIO buttons: volume up/down, play/pause/next, wake |
 | `welcome-sound` | `welcome-sound.sh` | Oneshot: a chime once per boot |
 | `timer-alarm` | `timer_alarm.py` | Keeps timers and alarms, rings them, listens for "stop" |
-| `wake-word` | `wake_word.py` | Listens for "Hey Jarvis", checks it twice, records near-triggers, relays the trigger |
+| `wake-word` | `wake_word.py` | Listens for "Hey Jarvis", checks it twice, records near-triggers and a log of its speech features, relays the trigger |
 | `voice-agent` | `voice_agent.py` | Runs a Gemini Live conversation per trigger; owns ducking, DSP profile switching, chimes, tools |
 | `spotifyd` | `~/.local/bin/spotifyd` | Spotify Connect receiver ("AI Speaker") |
 | `spotifyd-watchdog.timer` | `spotifyd-watchdog.py` | Every 5 min: restarts spotifyd if Spotify no longer lists the speaker (spotifyd does not reconnect a dropped websocket) |

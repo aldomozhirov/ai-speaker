@@ -14,7 +14,7 @@ comes from something that actually happened on this device.
 
 0. **Many times, or since when?** `tools/wake/wake-events-report.py --since …`
    lists every wake event with what blocked it and flags retries; it also
-   copies the captures before the 200 MB rotation (about two days) deletes them.
+   copies the captures; since 15 Nov detections are kept about two months.
 1. **Blocked by the second opinion?** `journalctl _SYSTEMD_USER_UNIT=wake-word.service | grep "blocked by the second opinion"`.
    It was meant to cost about one real wake-up in five; for a quiet or far voice it
    costs far more (17–18 Oct: 25 of 26, see wake-word.md). Softer: `WAKE_WORD_SECOND_OPINION=log`.

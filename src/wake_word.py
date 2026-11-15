@@ -42,6 +42,8 @@ import sound_fx  # noqa: E402
 import timer_alarm_client  # noqa: E402
 import wake_capture  # noqa: E402
 import wake_confirm  # noqa: E402
+import wake_context  # noqa: E402
+import wake_features  # noqa: E402
 from pw_node import wait_for_node  # noqa: E402
 
 LOG = logging.getLogger("wake-word")
@@ -545,8 +547,14 @@ class Listener:
         threshold: float = THRESHOLD,
         verifier: Verifier | None = None,
         second_opinion: "wake_confirm.SecondOpinion | None" = None,
+        features=None,
+        context=None,
     ) -> None:
         self._model = model
+        # Every frame's features go to the feature log (wake_features.py);
+        # the context (wake_context.py) is added to each `wake event:` line.
+        self.features = features if features is not None else wake_features.NullFeatureLog()
+        self.context = context if context is not None else wake_context.NullContext()
         self._model_name = model_name
         self._threshold = threshold
         self._verifier = verifier
@@ -563,6 +571,8 @@ class Listener:
             self._watchdog.update(stereo)
         mono = np.ascontiguousarray(stereo[:, CHANNEL_INDEX])
         score = float(self._model.predict(mono).get(self._model_name, 0.0))
+        # The row predict() just added: one per 80 ms frame.
+        self.features.push(self._model.preprocessor.get_features(1)[0, 0], score)
         confidence = None
         if self._verifier is not None and score >= self._threshold:
             confidence = self._verifier.confidence(self._model)
@@ -617,11 +627,12 @@ class Listener:
             # crossed -- and badly understates how well the phrase scored.
             if event["quiet"] * FRAME_SECONDS >= 1.0:
                 LOG.info(
-                    "wake event: peak=%.3f frames_over_threshold=%d fired=%s%s",
+                    "wake event: peak=%.3f frames_over_threshold=%d fired=%s%s%s",
                     event["peak"],
                     event["over"],
                     "yes" if event["fired"] else "no",
                     "" if event["verifier"] is None else " verifier=%.3f" % event["verifier"],
+                    self.context.describe(),
                 )
                 self._event = None
 
@@ -813,6 +824,21 @@ def main() -> int:
             local_intent.LOCAL_INTENT_MODEL_DIR,
         )
 
+    if wake_context.ENABLED:
+        context = wake_context.Context()
+        context.start()
+        LOG.info("Playback context on every wake event: every %.0fs, music = %r",
+                 wake_context.INTERVAL_SECONDS, wake_context.MUSIC_MATCH)
+    else:
+        context = wake_context.NullContext()
+
+    if wake_features.ENABLED:
+        features = wake_features.FeatureLog(FRAME_SECONDS)
+        LOG.info("Feature log enabled: %s (capped at %.0f MB)",
+                 wake_features.DIRECTORY, wake_features.MAX_MB)
+    else:
+        features = wake_features.NullFeatureLog()
+
     if wake_capture.ENABLED:
         recorder = wake_capture.CaptureRecorder(
             sample_rate=SAMPLE_RATE,
@@ -824,15 +850,19 @@ def main() -> int:
                 "threshold": THRESHOLD,
                 "patience": PATIENCE_FRAMES,
             },
+            near_below=THRESHOLD,
+            context=context.snapshot,
         )
         LOG.info(
             "Near-trigger capture enabled: %s (score > %.2f, %.0fs before / %.0fs after, "
-            "capped at %.0f MB)",
+            "capped at %.0f MB, near-misses below %.2f at %.0f MB)",
             wake_capture.DIRECTORY,
             wake_capture.SCORE,
             wake_capture.PRE_SECONDS,
             wake_capture.POST_SECONDS,
             wake_capture.MAX_MB,
+            THRESHOLD,
+            wake_capture.NEAR_MAX_MB,
         )
     else:
         recorder = wake_capture.NullRecorder()
@@ -863,6 +893,8 @@ def main() -> int:
         MicWatchdog(health),
         verifier=verifier,
         second_opinion=second_opinion,
+        features=features,
+        context=context,
     )
 
     trigger = WakeTrigger(COOLDOWN_SECONDS)
@@ -913,6 +945,7 @@ def main() -> int:
             LOG.exception("Capture loop failed")
         finally:
             recorder.flush()
+            features.flush()
             proc.terminate()
             try:
                 proc.wait(timeout=2)

@@ -20,6 +20,33 @@ Decision records are linked as [D00NN](docs/decisions/README.md).
 
 ---
 
+## 2026-11-15 — Wake word: keep the evidence (plan stage A)
+
+- **What:** stage A of [the custom-model plan](docs/plans/wake-word-custom-model.md),
+  live since 14:56.
+  - Captures rotate in two pools: near-misses (score below the threshold)
+    beyond 200 MB (`WAKE_WORD_CAPTURE_NEAR_MAX_MB`), everything else beyond
+    `WAKE_WORD_CAPTURE_MAX_MB=4000` (was one shared 200 MB).
+  - New `src/wake_features.py`: openWakeWord's 96 features of every 80 ms
+    frame and its score, float16, in `~/.local/share/ai-speaker/wake-features/`
+    (`WAKE_WORD_FEATURE_LOG=1`; ~210 MB a day, capped at 12 GB).
+  - New `src/wake_context.py`: whether music is playing, for how long, and
+    the volume, on every `wake event:` line and in every capture's JSON.
+  - `wake-events-report.py` reads them (`music`, `music_s`, `volume`
+    columns; a "music playing at the time" table).
+  - Detection, thresholds and the session path are unchanged.
+- **Why:** owner, on the plan: "You can push it to main any begin with step
+  A". The 28-day review found that the 200 MB cap kept only about two days of
+  audio (near-misses pushed detections out) and no event recorded whether
+  music was playing; training and judging a new model needs weeks of the
+  room's sound.
+- **Evidence:** unit tests (`tests/test_wake_features.py`, 10 checks) and
+  `wake-replay.py selftest` pass, including a new check that the logged rows
+  are the window the model scores (largest difference 0.016, float16). A
+  second instance next to the live one: 12.0 / 11.9 % of a core with the
+  logging off, 12.9 / 12.5 % on; one feature file filled at exactly 12.5 rows
+  a second; status all OK before and after the install.
+
 ## 2026-11-15 — Plan: a wake-word model trained on this household
 
 - **What:** [docs/plans/wake-word-custom-model.md](docs/plans/wake-word-custom-model.md),

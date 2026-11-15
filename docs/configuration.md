@@ -32,7 +32,14 @@ Change a setting by editing the unit **in the repo**, then
 | `WAKE_WORD_CAPTURE` | 1 | 0 | Save audio around near-triggers |
 | `WAKE_WORD_CAPTURE_SCORE` | – | 0.05 | Score that starts a capture |
 | `WAKE_WORD_CAPTURE_PRE_SECONDS` / `_POST_SECONDS` / `_BUTTON_SECONDS` | – | 3 / 5 / 10 | Capture length |
-| `WAKE_WORD_CAPTURE_MAX_MB` | – | 200 | Oldest captures deleted beyond this |
+| `WAKE_WORD_CAPTURE_MAX_MB` | 4000 | 200 | Oldest captures deleted beyond this: detections, verifier rejections, button presses (about two months) |
+| `WAKE_WORD_CAPTURE_NEAR_MAX_MB` | – | 200 | The same for near-misses (kind `near`, peak below the threshold), in a pool of their own |
+| `WAKE_WORD_FEATURE_LOG` | 1 | 0 | Log openWakeWord's features of every frame (`wake_features.py`) |
+| `WAKE_WORD_FEATURE_LOG_DIR` | – | `~/.local/share/ai-speaker/wake-features` | Where |
+| `WAKE_WORD_FEATURE_LOG_MAX_MB` | – | 12000 | Oldest files deleted beyond this (~210 MB a day, so ~8 weeks) |
+| `WAKE_WORD_CONTEXT` | – | 1 | Add music playing / for how long / volume to every wake event and capture (`wake_context.py`) |
+| `WAKE_WORD_CONTEXT_SECONDS` | – | 3 | How often PipeWire is asked |
+| `WAKE_WORD_MUSIC_MATCH` | – | `spotifyd\|librespot` | Which playback streams count as music (as `VOICE_DUCK_MATCH`) |
 | `WAKE_WORD_STALL_SECONDS` | – | 10 | Restart capture if no audio for this long |
 | `WAKE_WORD_SILENCE_SECONDS` | – | 10 | Report a mic delivering digital silence |
 | `LOCAL_INTENT_ENABLED` | 0 | 0 | Offline Vosk command matching (off, see wake-word.md) |

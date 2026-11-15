@@ -17,8 +17,14 @@ fallback after a miss is the button, so an external trigger saves the last
 WAKE_WORD_CAPTURE_BUTTON_SECONDS as well.
 
 **Off by default** (WAKE_WORD_CAPTURE=0): this writes room audio to disk.
-Files stay on this machine, in a 0700 directory, and the oldest are deleted
-once the directory exceeds WAKE_WORD_CAPTURE_MAX_MB.
+Files stay on this machine, in a 0700 directory. The oldest are deleted in
+two separate pools: near-misses (kind "near" with a peak below the wake-word
+threshold, nine in ten files) beyond WAKE_WORD_CAPTURE_NEAR_MAX_MB, everything
+else (detections, verifier rejections, button presses) beyond
+WAKE_WORD_CAPTURE_MAX_MB. With one shared cap of 200 MB the near-misses
+pushed every detection out within two days (Nov 2026), long before anyone
+could label it. Subdirectories (e.g. kept/, for labelled captures) are never
+touched.
 
 Nothing here may ever block the capture loop: push() only moves references
 around, and the disk write happens on a separate thread behind a bounded
@@ -53,6 +59,17 @@ BUTTON_SECONDS = float(os.environ.get("WAKE_WORD_CAPTURE_BUTTON_SECONDS", "10.0"
 # Hard cap on one file, for a score that never settles (e.g. loud speech radio).
 MAX_SECONDS = float(os.environ.get("WAKE_WORD_CAPTURE_MAX_SECONDS", "20.0"))
 MAX_MB = float(os.environ.get("WAKE_WORD_CAPTURE_MAX_MB", "200"))
+NEAR_MAX_MB = float(os.environ.get("WAKE_WORD_CAPTURE_NEAR_MAX_MB", "200"))
+
+
+def is_near_miss(stem: str, threshold: float) -> bool:
+    """True for a capture file name of kind "near" whose peak (encoded in the
+    name in thousandths) stayed below `threshold`."""
+    parts = stem.split("-")
+    # YYYYMMDD-HHMMSS-kind-NNNN[-n]
+    if len(parts) < 4 or parts[2] != "near" or not parts[3].isdigit():
+        return False
+    return int(parts[3]) < round(threshold * 1000)
 
 
 class CaptureRecorder:
@@ -76,6 +93,9 @@ class CaptureRecorder:
         snapshot_seconds: float = BUTTON_SECONDS,
         max_seconds: float = MAX_SECONDS,
         max_mb: float = MAX_MB,
+        near_max_mb: float = NEAR_MAX_MB,
+        near_below: float = 0.0,
+        context=None,
     ) -> None:
         self._sample_rate = sample_rate
         self._channels = channels
@@ -92,6 +112,13 @@ class CaptureRecorder:
         self._snapshot_pre = frames(snapshot_seconds) if snapshot_seconds > 0 else 0
         self._max = frames(max_seconds)
         self._max_bytes = int(max_mb * 1024 * 1024)
+        self._near_max_bytes = int(near_max_mb * 1024 * 1024)
+        # Peak below which a "near" capture belongs to the near-miss pool;
+        # 0 puts every capture in the main pool.
+        self._near_below = near_below
+        # Called on the capture thread when an event starts; must return at
+        # once (a cached dict), e.g. whether music was playing.
+        self._context = context
 
         self._ring: collections.deque = collections.deque(
             maxlen=max(self._pre, self._snapshot_pre)
@@ -142,6 +169,7 @@ class CaptureRecorder:
                 "fired": [],
                 "marks": [],
                 "last_hot": len(pre),
+                "context": self._context_now(),
             }
             with self._lock:
                 self._notes = {}
@@ -158,6 +186,14 @@ class CaptureRecorder:
             if index - event["last_hot"] >= self._post or index + 1 >= self._max:
                 self.flush()
         self._ring.append((raw, score))
+
+    def _context_now(self) -> dict:
+        if self._context is None:
+            return {}
+        try:
+            return dict(self._context())
+        except Exception:
+            return {}
 
     def flush(self) -> None:
         """Hand the event in progress (if any) to the writer. Also called when
@@ -220,6 +256,7 @@ class CaptureRecorder:
             "fired_frames": event["fired"],
             "marks": event["marks"],
             "notes": event.get("notes", {}),
+            "context": event.get("context", {}),
             "scores": [round(float(s), 4) for s in scores],
             **self._meta,
         }
@@ -236,8 +273,8 @@ class CaptureRecorder:
         )
 
     def _prune(self) -> None:
-        """Delete the oldest captures (WAV and sidecar together) until the
-        directory is back under the size cap."""
+        """Delete the oldest captures (WAV and sidecar together) until each
+        pool is back under its size cap."""
         captures: dict[str, list] = {}
         with os.scandir(self._dir) as it:
             for entry in it:
@@ -249,14 +286,19 @@ class CaptureRecorder:
                 group[0] = min(group[0], st.st_mtime)
                 group[1] += st.st_size
                 group[2].append(entry.path)
-        total = sum(size for _, size, _ in captures.values())
-        for _, size, paths in sorted(captures.values()):
-            if total <= self._max_bytes:
-                break
-            for path in paths:
-                with contextlib.suppress(OSError):
-                    os.unlink(path)
-            total -= size
+        pools: dict[bool, list] = {True: [], False: []}
+        for stem, group in captures.items():
+            pools[is_near_miss(stem, self._near_below)].append(group)
+        for near, groups in pools.items():
+            limit = self._near_max_bytes if near else self._max_bytes
+            total = sum(size for _, size, _ in groups)
+            for _, size, paths in sorted(groups):
+                if total <= limit:
+                    break
+                for path in paths:
+                    with contextlib.suppress(OSError):
+                        os.unlink(path)
+                total -= size
 
 
 class NullRecorder:

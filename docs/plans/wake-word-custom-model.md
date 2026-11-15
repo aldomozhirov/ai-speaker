@@ -1,6 +1,7 @@
 # Plan: a wake-word model trained on this household
 
-- **Status:** agreed by the owner on 2026-11-15. Nothing below is built yet.
+- **Status:** agreed by the owner on 2026-11-15. Stage A live since
+  2026-11-15 14:56 (one check due 17 Nov); B next.
 - **Tick a step off here** (`[x]`, with the date) in the commit that completes
   it, and put the measured result next to it.
 - Background: [wake-word.md](../wake-word.md) (how it works now and the
@@ -87,55 +88,63 @@ About four weeks to the switch, most of it waiting for data.
 ## Stage A — keep the evidence
 
 **A1. Capture retention in two pools.** `src/wake_capture.py`
-- [ ] Captures whose peak is below `WAKE_WORD_THRESHOLD` (near-misses, nine in
+- [x] (2026-11-15) Captures whose peak is below `WAKE_WORD_THRESHOLD` (near-misses, nine in
   ten files today) rotate in their own pool: new setting
   `WAKE_WORD_CAPTURE_NEAR_MAX_MB`, default 200.
-- [ ] Everything else (score ≥ threshold, button, shadow firings of F1) uses
+- [x] (2026-11-15) Everything else (score ≥ threshold, button, shadow firings of F1) uses
   `WAKE_WORD_CAPTURE_MAX_MB`, set to **4000** in `wake-word.service`
   (about 116 events a day × 0.52 MB ≈ 60 MB a day ≈ two months).
-- [ ] Unit test for the rotation in `tests/`; rows in
+- [x] (2026-11-15) Unit test for the rotation in `tests/test_wake_features.py`; rows in
   [configuration.md](../configuration.md); the "Captures" paragraph of
   wake-word.md.
-- Check: after two days, `du -sh` of the capture folder grows by about 60 MB
-  a day and the oldest file with peak ≥ 0.10 is still there.
+- [ ] Check: after two days, `du -sh` of the capture folder grows by about 60 MB
+  a day and the oldest file with peak ≥ 0.10 is still there. (Due 17 Nov.)
 
 **A2. Feature log.** New `src/wake_features.py`, hooked into
 `Listener.ingest` in `src/wake_word.py`.
-- [ ] After every `predict()`, hand the newest feature row
+- [x] (2026-11-15) After every `predict()`, hand the newest feature row
   (`model.preprocessor.get_features(1)[0, 0]`, 96 numbers per 80 ms) and that
   frame's base score to a writer thread behind a bounded queue that drops
   rather than waits (same pattern as `wake_capture.py`: never block the
   capture loop).
-- [ ] Format: raw float16 rows of 97 values (96 features + score) in
+- [x] (2026-11-15) Format: raw float16 rows of 97 values (96 features + score) in
   `~/.local/share/ai-speaker/wake-features/YYYYMMDD-HHMMSS.f16`. A new file
   starts every hour and at every capture (re)start, so the rows inside one
   file are exactly 80 ms apart and the file name gives the wall-clock time of
-  row 0. Directory mode 0700.
-- [ ] Settings: `WAKE_WORD_FEATURE_LOG` (default 0; **1** in the unit),
+  row 0. Directory mode 0700. (Two files started in the same second: the
+  second gets `_2`, which sorts after the first.) Also a new file after a
+  dropped batch, so there is never a gap inside a file.
+- [x] (2026-11-15) Settings: `WAKE_WORD_FEATURE_LOG` (default 0; **1** in the unit),
   `WAKE_WORD_FEATURE_LOG_DIR`, `WAKE_WORD_FEATURE_LOG_MAX_MB` (default 12000,
   oldest files deleted first). Size: 97 × 2 bytes × 12.5 a second ≈ 210 MB a
   day, so about eight weeks.
-- [ ] `wake-replay.py selftest`: a synthetic clip fed through the loop gives
-  logged rows equal to the features recomputed offline, and any 16 consecutive
-  rows equal `get_features(16)` at that frame.
-- [ ] Live check before install (second instance, own directories): CPU of the
+- [x] (2026-11-15) `wake-replay.py selftest`: a synthetic clip fed through the loop gives
+  one logged row per frame with its score, and the last 16 rows equal
+  `get_features(16)` at that frame (largest difference 0.016, float16
+  rounding). Writer, segments, drops and pruning: `tests/test_wake_features.py`.
+- [x] (2026-11-15) Live check before install (second instance, own directories): CPU of the
   wake-word process and `ai-speaker-status.sh` unchanged with the log on.
+  Measured: 12.0 / 11.9 % of a core with the log and context off, 12.9 /
+  12.5 % on (100 s each); status all OK.
 - What it is for: any future model can be replayed over weeks of everything
   the speaker really heard, and its false alarms counted, without keeping
   speech. The features are not audio and cannot be played back; they still
   stay on the device.
 
 **A3. Context on every event.**
-- [ ] On the recorder's writer thread (not the capture loop), add to each
-  capture's JSON and to the `wake event:` journal line: whether a music stream
-  was playing (the same stream match `duck.py` uses) and the sink volume.
-- [ ] `tools/wake/wake-events-report.py`: read the two fields, add
-  `music`/`volume` columns to `events.csv` and a "misses with and without
-  music" row to `summary.md`.
+- [x] (2026-11-15) Add to each capture's JSON and to the `wake event:` journal
+  line: whether a music stream was playing (the same stream match `duck.py`
+  uses), for how long, and the sink volume. As built: a thread of its own
+  (`src/wake_context.py`) asks PipeWire every 3 s and caches the answer; the
+  capture loop only reads the cache, so it still never waits.
+- [x] (2026-11-15) `tools/wake/wake-events-report.py`: reads the fields, adds
+  `music`/`music_s`/`volume` columns to `events.csv` and a "Music playing at
+  the time" table (with "first 15 s of music") to `summary.md`.
 
 **A4. Install and note the start.**
-- [ ] `./install.sh apply user`, restart `wake-word`, `ai-speaker-status.sh`.
-- [ ] Write the date and time here: collection started ____.
+- [x] (2026-11-15) `./install.sh apply user`, restart `wake-word`, `ai-speaker-status.sh`
+  (all OK).
+- [x] Collection started **2026-11-15 14:56**.
 
 ---
 

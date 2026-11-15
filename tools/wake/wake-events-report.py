@@ -71,6 +71,7 @@ RX = {
     "blocked": re.compile(r"blocked by the second opinion \(vosk=([\d.]+) micro=([\d.]+)"),
     "event": re.compile(
         r"wake event: peak=([\d.]+) frames_over_threshold=(\d+) fired=(yes|no)(?: verifier=([\d.]+))?"
+        r"(?: music=(yes|no))?(?: music_s=(\d+))?(?: volume=([\d.]+))?"
     ),
     "capture": re.compile(r"Saved capture (\S+/(\d{8}-\d{6})-(\w+)-\d+\.wav) \(\w+, ([\d.]+)s, peak=([\d.]+) at \+([\d.]+)s\)"),
     "start": re.compile(r"Starting session \(trigger=([\w-]+)\)"),
@@ -107,6 +108,9 @@ class Event:
     capture: str = ""
     label: str = ""
     note: str = ""
+    music: bool | None = None      # journalled since 2026-11-15 (wake_context.py)
+    music_s: int | None = None     # how long the music had been playing
+    volume: float | None = None
 
 
 @dataclass
@@ -182,6 +186,11 @@ def parse(lines):
                 e = Event(t - 1.0, "event", fired=fired, in_session=open_session is not None)
                 events.append(e)
             e.peak, e.frames, e.verifier = peak, frames, ver
+            if m[5]:
+                e.music = m[5] == "yes"
+                e.music_s = int(m[6]) if m[6] else None
+            if m[7]:
+                e.volume = float(m[7])
         elif m := RX["capture"].search(msg):
             start = dt.datetime.strptime(m[2], "%Y%m%d-%H%M%S").timestamp()
             captures.append((start, start + float(m[4]), m[1], float(m[5])))
@@ -304,7 +313,8 @@ def write(out: Path, events, sessions, since, until, copy: bool):
     with open(out / "events.csv", "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["time", "label", "kind", "peak", "frames", "verifier", "decision", "vosk", "micro",
-                    "session_trigger", "session_end", "cancel_after_s", "tools", "user_said", "capture", "note"])
+                    "session_trigger", "session_end", "cancel_after_s", "tools", "user_said", "capture", "note",
+                    "music", "music_s", "volume"])
         for e in events:
             s = sessions[e.session] if e.session is not None else None
             w.writerow([iso(e.t), e.label, e.kind, fmt(e.peak), e.frames if e.frames is not None else "",
@@ -312,7 +322,9 @@ def write(out: Path, events, sessions, since, until, copy: bool):
                         s.trigger if s else "", s.end_reason if s else "",
                         "" if not s or s.cancel_after is None else s.cancel_after,
                         "; ".join(s.tools) if s else "", " | ".join(s.user)[:300] if s else "",
-                        Path(e.capture).name if e.capture else "", e.note])
+                        Path(e.capture).name if e.capture else "", e.note,
+                        "" if e.music is None else ("yes" if e.music else "no"),
+                        "" if e.music_s is None else e.music_s, fmt(e.volume, ".2f")])
     with open(out / "sessions.jsonl", "w") as f:
         for s in sessions:
             f.write(json.dumps({**asdict(s), "t": iso(s.t), "end": iso(s.end) if s.end else None},
@@ -356,7 +368,8 @@ def write(out: Path, events, sessions, since, until, copy: bool):
              f"blocked by the second opinion {sum(e.decision == 'blocked' for e in trig)})")
     L.append(f"- Voice sessions: {sum(1 for s in sessions if s.trigger != 'button')}, "
              f"button sessions: {sum(1 for s in sessions if s.trigger == 'button')}")
-    L.append(f"- Captures copied: {sum(copied.values())} (live captures are rotated after ~2 days)\n")
+    L.append(f"- Captures copied: {sum(copied.values())} (near-misses rotate within days, other captures "
+             "after about two months since 2026-11-15)\n")
     L.append("## By label\n")
     L.append("| Label | Count | Meaning |\n|---|---|---|")
     for k, desc in LABELS.items():
@@ -369,6 +382,24 @@ def write(out: Path, events, sessions, since, until, copy: bool):
     L.append("| Day | " + " | ".join(cols) + " |\n|" + "---|" * (len(cols) + 1))
     for d in days:
         L.append(f"| {d} | " + " | ".join(str(per_day[d].get(c, 0)) for c in cols) + " |")
+
+    groups = {
+        "Did something": ("ok",),
+        "Unwanted sessions": ("fp-empty", "fp-cancelled", "fp-review", "empty-after-retry"),
+        "Likely misses": ("miss-retry", "miss-retry-verifier", "miss-repeat", "near-retry"),
+        "Blocked, unexplained": ("blocked",),
+        "Rejected by the verifier": ("verifier-rejected",),
+    }
+    if any(e.music is not None for e in voice):
+        L.append("\n## Music playing at the time\n")
+        L.append("Journalled since 2026-11-15; events before that count as unknown. "
+                 "\"First 15 s\": music had been playing for under 15 s (echo canceller still converging).\n")
+        L.append("| Events | Music | … first 15 s | No music | Unknown |\n|---|---|---|---|---|")
+        for title, keys in groups.items():
+            rows = [e for e in voice if e.label in keys]
+            on = [e for e in rows if e.music]
+            L.append(f"| {title} | {len(on)} | {sum(e.music_s is not None and e.music_s < 15 for e in on)} | "
+                     f"{sum(e.music is False for e in rows)} | {sum(e.music is None for e in rows)} |")
 
     def table(title, rows):
         L.append(f"\n## {title} ({len(rows)})\n")

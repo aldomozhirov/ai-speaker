@@ -119,7 +119,8 @@ def clip_stream(parts: list, lead: float = 3.0, tail: float = 12.0, seed: int = 
 
 
 def replay(stream: np.ndarray, *, threshold: float, patience: int = 1, channel: int | None = None,
-           local_intent: bool = False, recorder=None, watchdog=None, refractory: float | None = None):
+           local_intent: bool = False, recorder=None, watchdog=None, refractory: float | None = None,
+           features=None):
     """Run one 2-channel stream through the production loop.
 
     Returns (fires, scores, trigger): fires as (seconds, score-at-firing),
@@ -131,7 +132,7 @@ def replay(stream: np.ndarray, *, threshold: float, patience: int = 1, channel: 
     model, name = ww.load_model()
     refractory = ww.REFRACTORY_SECONDS if refractory is None else refractory
     gate = ww.DetectionGate(threshold, patience, threshold / 2, round(refractory / ww.FRAME_SECONDS))
-    listener = ww.Listener(model, name, gate, recorder, watchdog, threshold)
+    listener = ww.Listener(model, name, gate, recorder, watchdog, threshold, features=features)
 
     scores: list[float] = []
     inner = listener.ingest
@@ -148,6 +149,7 @@ def replay(stream: np.ndarray, *, threshold: float, patience: int = 1, channel: 
         stream[:usable].astype(np.int16).tofile(tmp.name)
         with open(tmp.name, "rb", buffering=0) as f:
             ww.run_stream(f, listener, trigger)
+    trigger.listener = listener
     return trigger.fires, scores, trigger
 
 
@@ -314,6 +316,27 @@ def selftest() -> int:
         c.check(size <= 1.2 * 1024 * 1024 and len(wavs) == len(jsons) and 0 < len(wavs) < 5,
                 "recorder: oldest captures are pruned at the size cap, WAV and sidecar together",
                 f"{len(wavs)} kept, {size / 1024:.0f} kB")
+
+    # 7. Feature log: one row per frame, aligned with what the heads score.
+    with tempfile.TemporaryDirectory() as tmp:
+        log = ww.wake_features.FeatureLog(ww.FRAME_SECONDS, directory=tmp)
+        stream = clip_stream([clip], lead=4.0, tail=4.0)
+        _, scores, trigger = replay(stream, threshold=0.10, features=log)
+        log.flush()
+        log.drain()
+        files = sorted(glob.glob(os.path.join(tmp, "*.f16")))
+        ok, detail = False, f"{len(files)} file(s)"
+        if len(files) == 1:
+            rows = ww.wake_features.read(files[0])
+            window = trigger.listener._model.preprocessor.get_features(16)[0]
+            ok = (
+                len(rows) == len(scores)
+                and np.allclose(rows[-16:, :96], window, rtol=2e-3, atol=2e-3)
+                and np.allclose(rows[:, 96], scores, atol=1e-3)
+            )
+            detail = (f"{len(rows)} rows for {len(scores)} frames, last 16 rows vs the scored window: "
+                      f"max diff {np.abs(rows[-16:, :96] - window).max():.4f}")
+        c.check(ok, "feature log: one row per frame; the last 16 rows are the window the model scored", detail)
 
     print(f"\n{'ALL PASS' if not c.failed else str(c.failed) + ' FAILED'}")
     return 1 if c.failed else 0
