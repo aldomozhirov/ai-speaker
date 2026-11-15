@@ -119,6 +119,7 @@ Never in git (blocked by `.gitignore` as a second line of defence):
 | spotifyd's Spotify Connect login | `~/.cache/spotifyd/zeroconf/` | select "AI Speaker" once in the Spotify app |
 | Verifier model and its training captures | `~/.local/share/ai-speaker/wake-verifier/` | retrain from captures |
 | Wake captures (labelled ones in `kept/`) | `~/.local/share/ai-speaker/wake-captures/` | accumulate again |
+| Enrolment recordings and positions (`tools/wake/wake-enroll.py`) | `~/.local/share/ai-speaker/wake-enroll/` | record again |
 | Feature log (not audio, but derived from it) | `~/.local/share/ai-speaker/wake-features/` | accumulates again |
 | Wi-Fi profile (password) | `/etc/NetworkManager/system-connections/` | Raspberry Pi Imager or `nmcli` |
 

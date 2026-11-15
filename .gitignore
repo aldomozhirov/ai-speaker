@@ -13,6 +13,7 @@ config/*.json
 wake-captures/
 wake-verifier/
 wake-features/
+wake-enroll/
 *.f16
 private-backup-*.tar*
 

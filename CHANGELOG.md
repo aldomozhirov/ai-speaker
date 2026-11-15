@@ -20,6 +20,20 @@ Decision records are linked as [D00NN](docs/decisions/README.md).
 
 ---
 
+## 2026-11-15 — Wake-word enrolment recorder (plan stage B1)
+
+- **What:** `tools/wake/wake-enroll.py`: cued "Hey Jarvis" recordings at
+  measured positions, in quiet, over music and over talk. The LED ring lights
+  for each of 12 takes per position; voice-agent is stopped meanwhile and
+  started again at the end; wake-word keeps running so the journal records
+  the live verdict on every take. Recordings stay on the device
+  (`~/.local/share/ai-speaker/wake-enroll/`, in `.gitignore`).
+- **Why:** plan stage B; the owner gave the positions: right next to it
+  (0.5 m), kitchen (3 m right), corridor (4 m behind), entrance (6 m forward
+  right), balcony (3 m left).
+- **Evidence:** dry run of four short blocks: files, skip, cue times (3.04 s
+  for a cue planned at 3.0 s) as expected.
+
 ## 2026-11-15 — Wake word: keep the evidence (plan stage A)
 
 - **What:** stage A of [the custom-model plan](docs/plans/wake-word-custom-model.md),

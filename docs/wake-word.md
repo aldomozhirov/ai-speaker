@@ -208,6 +208,9 @@ tools/wake/wake-events-report.py --since "2026-10-18 16:27"
 # Regression test of the detection loop with synthetic clips
 ~/.venvs/wake-word/bin/python tools/wake/wake-replay.py selftest
 
+# Record cued wake-ups at the five positions (plan stage B), resumable
+tools/wake/wake-enroll.py record --person NAME --round 1
+
 # Retrain the verifier: copy captures into wake-verifier/positive or /negative, then
 OMP_NUM_THREADS=1 nice -n 19 ~/.venvs/wake-word/bin/python tools/wake/wake-verifier-train.py
 systemctl --user restart wake-word

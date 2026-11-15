@@ -155,11 +155,11 @@ only way to get recall by distance.
 
 **B1. Tool `tools/wake/wake-enroll.py`** (wake-word venv, run over SSH from a
 phone or laptop in the room).
-- [ ] `wake-enroll.py positions` asks once for five positions and stores them
-  in `~/.local/share/ai-speaker/wake-enroll/positions.json`: name and distance
-  measured with a tape. Suggested: 1 m in front, 3 m (sofa), 5 m, the far
-  corner or doorway, and one off to the side or facing away.
-- [ ] `wake-enroll.py record --person NAME --round N`:
+- [x] (2026-11-15) `wake-enroll.py positions --set name=metres:where …` stores
+  them in `~/.local/share/ai-speaker/wake-enroll/positions.json`. Set from the
+  owner's list: near 0.5 m, kitchen 3 m right, corridor 4 m behind, entrance
+  6 m forward right, balcony 3 m left.
+- [x] (2026-11-15) `wake-enroll.py record --person NAME --round N`:
   - refuses to start while a voice session is active;
   - stops `voice-agent` for its duration and starts it again in `finally`
     (so no session opens, nothing chimes, music is not ducked); `wake-word`
@@ -171,18 +171,22 @@ phone or laptop in the room).
   - for each position × condition: prints where to stand, waits for Enter,
     then cues 12 takes five seconds apart by lighting the LED ring
     (`listening` for one second on `assistant-led.sock`, then `idle`); no
-    sound. Takes 1–8 in a normal voice, 9–10 quietly, 11–12 fast. Cue times go
-    to `takes.json`. A key repeats the last take;
-  - conditions: **quiet**; **music** from the speaker at the usual volume
+    sound. Takes 1–8 in a normal voice, 9–10 quietly, 11–12 fast. Cue times
+    (audio time and wall clock) go to `takes.json`. As built: after each
+    block, `r` records that position again; an interrupted round resumes
+    where it stopped; `--redo` records chosen blocks again;
+  - conditions, one after the other across all positions: **quiet**; **music** from the speaker at the usual volume
     (the tool waits 20 s after it sees the music stream, for the echo
     canceller to converge, and refuses if nothing is playing); **talk** (a TV,
     podcast or conversation from another device, not from the speaker);
-  - ends each condition with two minutes in which nobody says the phrase
-    ("bed": negatives, and background for mixing in E4).
-- [ ] 5 positions × 3 conditions × 12 takes = 180 takes, about 20 minutes
-  with the walking.
-- [ ] Row in [tools.md](../tools.md); the folder is listed in
-  [operations.md](../operations.md) among the data that is never committed.
+  - ends each block with 20 s in which nobody says the phrase ("bed":
+    negatives, and background for mixing in E4); 15 blocks give 5 minutes.
+- [x] (2026-11-15) 5 positions × 3 conditions × 12 takes = 180 takes; 83 s a
+  block, about 26 minutes with the walking.
+- [x] (2026-11-15) Row in [tools.md](../tools.md); the folder is listed in
+  [operations.md](../operations.md) among the data that is never committed
+  and in `.gitignore`. Checked with `--dry-run` (LEDs and voice-agent left
+  alone): blocks, skip, redo, resume, cue times within 40 ms.
 
 **B2. Round 1 (training).** **Owner**, and everyone else who uses the speaker.
 - [ ] Date ____, people ____, takes ____.

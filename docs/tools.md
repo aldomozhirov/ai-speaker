@@ -39,6 +39,7 @@ Measurement results and kept recordings go to
 | `wake-replay.py score DIR [--thresholds …] [--gain-db …]` | Peak score per channel of real captures, and what each threshold would do |
 | `wake-verifier-train.py [--report-only]` | (Re)train the household verifier from sorted captures |
 | `wake-events-report.py [--since …] [--until …] [--no-copy]` | Every wake event from the journal joined with its voice session: likely false wake-ups, likely misses (retries), per-day counts, music playing or not (since 2026-11-15); copies flagged captures. Output in `~/.local/state/ai-speaker/measurements/wake-events-<date>/` (household speech, not for git). No venv, no audio |
+| `wake-enroll.py positions \| record --person NAME --round 1\|2 \| status` | Cued "Hey Jarvis" recordings at measured positions, in quiet, over music and over talk: 12 takes per block, LED ring as the cue, voice-agent stopped meanwhile. Resumable. Output in `~/.local/share/ai-speaker/wake-enroll/` (household audio, not for git). No venv. Plan stage B |
 | `second-opinion-check.py` | Replay captures through openWakeWord + second opinion as the live loop does |
 | `wake-bench/bench.py`, `report.py`, `loosen_eval.py` | The 2026-10-08 engine comparison (needs its own venv with the candidate engines) |
 
